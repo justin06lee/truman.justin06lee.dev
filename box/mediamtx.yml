@@ -1,0 +1,69 @@
+# MediaMTX on the Arch box. Install to /etc/mediamtx/mediamtx.yml
+#
+# Two things are happening here: the camera publishes over RTSP, and browsers
+# read over WHEP. Everything else is off.
+
+logLevel: info
+
+###############################################################################
+# Authentication
+#
+# Every publish and every read is checked against truman before a byte moves.
+# Gating the website alone would leave these urls readable by anyone who ever
+# saw one in a network tab.
+###############################################################################
+
+authMethod: http
+authHTTPAddress: https://truman.justin06lee.dev/api/media/auth
+
+# Nothing is exempt. In particular the metrics and pprof endpoints stay shut —
+# the auth route refuses every action except publish, read and playback.
+authHTTPExclude: []
+
+###############################################################################
+# Protocols
+###############################################################################
+
+# RTSP in, from the camera on this same machine.
+#
+# Not RTMP, and this is the one that costs an afternoon if you get it wrong:
+# RTMP cannot carry Opus, and WebRTC cannot carry AAC. MediaMTX does not
+# transcode, so publishing over RTMP gives you a stream with audio no browser
+# can play. RTSP carries Opus end to end.
+rtsp: yes
+rtspAddress: 127.0.0.1:8554
+rtspTransports: [tcp]
+rtmp: no
+
+# WHEP out, to browsers.
+webrtc: yes
+webrtcAddress: :8889
+
+# WebRTC needs a UDP path back to the viewer. Forward this port on the router
+# alongside 8889/tcp, and put the public address in webrtcAdditionalHosts —
+# without it, candidates advertise a 192.168.x address that nobody outside the
+# house can reach.
+webrtcLocalUDPAddress: :8189
+webrtcIPsFromInterfaces: yes
+webrtcAdditionalHosts: []
+  # - media.justin06lee.dev
+
+# HLS is off. It is the fallback for networks that block UDP, and it costs
+# ten-plus seconds of latency — turn it on deliberately if you need it, not by
+# default, or chat quietly stops matching the picture.
+hls: no
+srt: no
+
+###############################################################################
+# The one path
+###############################################################################
+
+paths:
+  live:
+    # Deliberately empty. Recording is not driven from here: truman-agent
+    # starts and stops the recorder alongside the camera, so an episode spans
+    # one sitting rather than one uninterrupted publish. A usb blip that drops
+    # the stream for two seconds would otherwise file two episodes.
+    #
+    # It also keeps this file free of hooks that would need to read the shared
+    # key — MediaMTX does not run as root, and /etc/truman/box.env is 0600.

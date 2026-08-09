@@ -1,0 +1,14 @@
+[Unit]
+Description=truman — polls the site for the on-air switch
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+EnvironmentFile=/etc/truman/box.env
+ExecStart=/opt/truman/agent.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,22 @@
+[Unit]
+Description=truman — the 400x timelapse recorder
+After=mediamtx.service
+BindsTo=truman-camera.service
+
+[Service]
+Type=exec
+EnvironmentFile=/etc/truman/box.env
+
+ExecStartPre=/opt/truman/record.sh begin
+ExecStart=/opt/truman/record.sh capture
+ExecStopPost=/opt/truman/record.sh finish
+
+# ffmpeg writes the mp4 trailer on SIGINT. SIGTERM would leave a file that is
+# playable (the fragmented-mp4 flags see to that) but never properly closed.
+KillSignal=SIGINT
+KillMode=mixed
+TimeoutStopSec=60
+
+# Never restart. An exit means the session ended; restarting would open a
+# second clip for the same session and file two episodes for one sitting.
+Restart=no

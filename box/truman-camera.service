@@ -1,0 +1,15 @@
+[Unit]
+Description=truman — usb camera to the local mediamtx
+After=network-online.target mediamtx.service
+Wants=mediamtx.service
+
+[Service]
+Type=exec
+EnvironmentFile=/etc/truman/box.env
+ExecStart=/opt/truman/camera.sh
+# A usb hiccup should not end the session — reconnect and keep going. The
+# recorder holds its own RTSP connection open across the gap.
+Restart=on-failure
+RestartSec=3
+SupplementaryGroups=video audio
+Nice=5

@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local libsql database — the no-env fallback
+/.data
+
+# ...but the template of the names is worth committing
+!.env.example

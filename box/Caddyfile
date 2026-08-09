@@ -1,0 +1,31 @@
+# TLS, and the two things the browser fetches from this box.
+#
+# Browsers refuse getUserMedia-free WebRTC from mixed content and will not
+# post an SDP offer from an https page to an http endpoint, so this is not
+# optional once the site is on https.
+
+media.justin06lee.dev {
+	# WHEP. MediaMTX does its own auth via the callback to truman, so Caddy
+	# passes these straight through.
+	handle /live/* {
+		reverse_proxy 127.0.0.1:8889
+	}
+	handle /whep* {
+		reverse_proxy 127.0.0.1:8889
+	}
+
+	# The finished timelapses. MediaMTX never sees these — they are plain
+	# files — so Caddy asks truman whether the token is good before serving
+	# one. Without this the archive would be an open directory sitting behind
+	# a gated live stream.
+	handle /clips/* {
+		forward_auth https://truman.justin06lee.dev {
+			uri /api/media/clip-auth?token={http.request.uri.query.token}
+			method GET
+		}
+		root * /var/lib/truman
+		file_server
+	}
+
+	respond 404
+}
