@@ -4,14 +4,14 @@ import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 
 import { db, initDb } from "@/lib/db";
+import { PRESENCE_MS, shouldStamp } from "@/lib/presence";
+
+export { PRESENCE_MS, SEEN_STAMP_MS, shouldStamp } from "@/lib/presence";
 
 export const SESSION_COOKIE = "truman_session";
 
 /** A session is forgotten after this long without a request. */
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-
-/** Someone is "here" if they've been seen inside this window. */
-export const PRESENCE_MS = 45_000;
 
 const MAX_ATTEMPTS = 10;
 const ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
@@ -146,10 +146,12 @@ export async function getSession(): Promise<Session | null> {
     return null;
   }
 
-  await db().execute({
-    sql: "UPDATE truman_sessions SET seen_at = ? WHERE id = ?",
-    args: [now, id],
-  });
+  if (shouldStamp(Number(row.seen_at), now)) {
+    await db().execute({
+      sql: "UPDATE truman_sessions SET seen_at = ? WHERE id = ?",
+      args: [now, id],
+    });
+  }
 
   return {
     id: String(row.id),
