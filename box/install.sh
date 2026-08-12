@@ -62,4 +62,5 @@ echo
 echo "done. next:"
 echo "  1. sudoedit /etc/truman/box.env      # paste TRUMAN_BOX_KEY, set the camera device"
 echo "  2. sudo systemctl enable --now mediamtx truman-agent"
-echo "  3. ./doctor.sh                       # checks everything before you trust it"
+echo "  3. sudo ./forward.sh                 # opens the router ports (or tells you how)"
+echo "  4. ./doctor.sh                       # checks everything before you trust it"

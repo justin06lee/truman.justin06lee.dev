@@ -120,25 +120,46 @@ if [[ -n "$MEDIA_HOST" ]]; then
     fail "caddy is not running — viewers have no https endpoint to fetch video from"
     info "this is the black-screen-while-live case. fix: sudo systemctl enable --now caddy"
   fi
-  CODE=$(curl -s -o /dev/null -w '%{http_code}' -m 8 "https://$MEDIA_HOST" 2>/dev/null)
-  if [[ "$CODE" == "000" ]]; then
-    fail "https://$MEDIA_HOST is not reachable from this box"
-    info "until this works, the page shows black. you need all of:"
-    info "  A record   $MEDIA_HOST  ->  ${PUBLIC:-your public ip}"
-    info "  forward    443/tcp   -> this box   (https)"
-    info "  forward    80/tcp    -> this box   (caddy's certificate)"
-    info "  forward    8189/udp  -> this box   (the video itself)"
-    info "  mediamtx.yml: webrtcAdditionalHosts must list $MEDIA_HOST"
-    info "do NOT forward 8889 — caddy fronts it on loopback"
+  # Caddy itself, reached over loopback. This proves the server and its
+  # certificate are good without involving dns or the router at all.
+  LOCALCODE=$(curl -s -o /dev/null -w '%{http_code}' -m 8 \
+    --resolve "$MEDIA_HOST:443:127.0.0.1" "https://$MEDIA_HOST" 2>/dev/null)
+  if [[ "$LOCALCODE" == "000" ]]; then
+    fail "caddy is not serving https for $MEDIA_HOST on this box"
+    info "check: journalctl -u caddy -n 30 --no-pager"
+    info "if it can't get a certificate, port 80 usually isn't reaching it"
   else
-    pass "https://$MEDIA_HOST answers (HTTP $CODE)"
-    if grep -qE "^\s*-\s*$MEDIA_HOST" "${MTX_CONF:-/etc/mediamtx/mediamtx.yml}" 2>/dev/null; then
-      pass "mediamtx advertises $MEDIA_HOST as an ice candidate"
-    else
-      fail "webrtcAdditionalHosts does not list $MEDIA_HOST"
-      info "the page will connect and then show nothing: mediamtx is handing"
-      info "viewers a 192.168.x address they cannot reach"
-    fi
+    pass "caddy serves $MEDIA_HOST locally with a valid cert (HTTP $LOCALCODE)"
+  fi
+
+  # And now from outside — except this box usually cannot test that. Most
+  # routers don't hairpin, so a request to your own public address from
+  # inside the house fails even when the internet reaches it fine. Never
+  # report that as broken; it sends you chasing a problem you don't have.
+  CODE=$(curl -s -o /dev/null -w '%{http_code}' -m 8 "https://$MEDIA_HOST" 2>/dev/null)
+  if [[ "$CODE" != "000" ]]; then
+    pass "and it answers over the public name too (HTTP $CODE)"
+  elif [[ -z "$RESOLVED" ]]; then
+    fail "$MEDIA_HOST has no dns record yet"
+    info "  add an A record:  $MEDIA_HOST  ->  ${PUBLIC:-your public ip}"
+    info "  on cloudflare it must be grey cloud, not orange"
+  elif [[ "$LOCALCODE" != "000" ]]; then
+    info "could not reach $MEDIA_HOST via its public address from in here."
+    info "  that is usually your router refusing to loop back on itself, NOT"
+    info "  a fault — caddy answered fine over loopback above."
+    info "  settle it from a phone on mobile data, not wifi:"
+    info "    https://$MEDIA_HOST"
+    info "  if that fails too, the forwards are missing. run: sudo ./forward.sh"
+  fi
+
+  if grep -qE "^\s*-\s*$MEDIA_HOST" "${MTX_CONF:-/etc/mediamtx/mediamtx.yml}" 2>/dev/null; then
+    pass "mediamtx advertises $MEDIA_HOST as an ice candidate"
+  else
+    fail "webrtcAdditionalHosts does not list $MEDIA_HOST"
+    info "the page will connect and then show nothing: mediamtx is handing"
+    info "viewers a 192.168.x address they cannot reach"
+    info "uncomment it in ${MTX_CONF:-/etc/mediamtx/mediamtx.yml}, then:"
+    info "  sudo systemctl restart mediamtx"
   fi
 fi
 
