@@ -14,7 +14,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 echo "==> packages"
-pacman -S --needed --noconfirm ffmpeg caddy curl v4l-utils
+pacman -S --needed --noconfirm ffmpeg caddy curl v4l-utils alsa-utils
 
 if ! command -v mediamtx >/dev/null; then
   echo
@@ -30,7 +30,7 @@ fi
 
 echo "==> scripts and units"
 install -Dm755 camera.sh agent.sh record.sh -t /opt/truman/
-install -Dm644 truman-camera.service truman-record.service truman-agent.service -t /etc/systemd/system/
+install -Dm644 truman-camera.service truman-record.service truman-agent.service truman-site.service -t /etc/systemd/system/
 install -Dm644 truman.tmpfiles.conf /etc/tmpfiles.d/truman.conf
 
 echo "==> mediamtx config"
@@ -63,11 +63,12 @@ echo "==> boot"
 # un-enabled on purpose: the agent starts and stops them with the site's
 # switch, and enabling them here would put the room on the air at every boot
 # regardless of what the switch says.
-systemctl enable mediamtx caddy truman-agent
+systemctl enable mediamtx caddy truman-agent truman-site
 
 echo
 echo "done. next:"
 echo "  1. sudoedit /etc/truman/box.env      # paste TRUMAN_BOX_KEY, set the camera device"
 echo "  2. sudo systemctl start mediamtx caddy truman-agent   # boot-enabled above; start them now"
 echo "  3. sudo ./forward.sh                 # opens the router ports (or tells you how)"
-echo "  4. ./doctor.sh                       # checks everything before you trust it"
+echo "  4. ./site-update.sh                  # build and start the site (needs .env.local in the repo root)"
+echo "  5. ./doctor.sh                       # checks everything before you trust it"
