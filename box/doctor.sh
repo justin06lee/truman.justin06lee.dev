@@ -124,7 +124,7 @@ if [[ -n "$MEDIA_HOST" ]]; then
   if [[ "$CODE" == "000" ]]; then
     fail "https://$MEDIA_HOST is not reachable from this box"
     info "until this works, the page shows black. you need all of:"
-    info "  A record   $MEDIA_HOST  ->  \${PUBLIC:-your public ip}"
+    info "  A record   $MEDIA_HOST  ->  ${PUBLIC:-your public ip}"
     info "  forward    443/tcp   -> this box   (https)"
     info "  forward    80/tcp    -> this box   (caddy's certificate)"
     info "  forward    8189/udp  -> this box   (the video itself)"
