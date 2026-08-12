@@ -39,10 +39,14 @@ pick_audio() {
   fi
 
   # auto: try the plain default, then every hardware capture device alsa
-  # knows about — on a box like this the webcam's own mic is usually card 1.
+  # knows about. Through plughw, not hw — raw hw refuses anything that isn't
+  # exactly S16/48k/stereo, which silently skips every mono usb mic; plughw
+  # converts. Beware that auto takes the first card that opens, which can be
+  # a silent onboard line-in — a real mic is better pinned by name in
+  # TRUMAN_AUDIO_DEVICE (see box.env.example).
   usable default && { echo "default"; return 0; }
   while read -r card device; do
-    usable "hw:${card},${device}" && { echo "hw:${card},${device}"; return 0; }
+    usable "plughw:${card},${device}" && { echo "plughw:${card},${device}"; return 0; }
   done < <(arecord -l 2>/dev/null | sed -nE 's/^card ([0-9]+):.*device ([0-9]+):.*/\1 \2/p')
 
   echo "audio: no capture device worked, continuing without sound" >&2
