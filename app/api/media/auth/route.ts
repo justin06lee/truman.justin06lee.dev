@@ -17,7 +17,9 @@ export const dynamic = "force-dynamic";
  *
  * `publish` is the box pushing its camera in; `read` is someone watching.
  * They authenticate differently on purpose: the box holds a long-lived key
- * and viewers hold sixty-second signed tokens.
+ * and viewers hold sixty-second signed tokens. The box's key is good for
+ * reading too — the recorder and the doctor read the stream back over
+ * loopback.
  */
 
 type AuthRequest = {
@@ -48,6 +50,13 @@ export async function POST(request: NextRequest) {
   if (body.action !== "read" && body.action !== "playback") {
     return deny(`action ${body.action ?? "unknown"} is not allowed`);
   }
+
+  // The box reads its own stream back — the timelapse recorder holds an RTSP
+  // connection open on loopback, and the doctor's probe is a read too. The
+  // publish key covers those: anyone holding it could already put frames in,
+  // so letting it take frames out concedes nothing new.
+  const boxKey = process.env.TRUMAN_BOX_KEY;
+  if (boxKey && body.password === boxKey) return NextResponse.json({ ok: true });
 
   const secret = process.env.TRUMAN_MEDIA_SECRET;
   if (!secret) return deny("media auth is not configured");
