@@ -41,13 +41,26 @@ pick_audio() {
   # auto: try the plain default, then every hardware capture device alsa
   # knows about. Through plughw, not hw — raw hw refuses anything that isn't
   # exactly S16/48k/stereo, which silently skips every mono usb mic; plughw
-  # converts. Beware that auto takes the first card that opens, which can be
-  # a silent onboard line-in — a real mic is better pinned by name in
-  # TRUMAN_AUDIO_DEVICE (see box.env.example).
+  # converts.
   usable default && { echo "default"; return 0; }
+
+  # Usb devices before onboard ones: a mic somebody plugged in is more likely
+  # the one they meant than the motherboard's line-in, which opens fine and
+  # records silence with perfect confidence. A specific mic is still better
+  # pinned by name in TRUMAN_AUDIO_DEVICE (see box.env.example).
+  local -a usb=() rest=()
   while read -r card device; do
-    usable "plughw:${card},${device}" && { echo "plughw:${card},${device}"; return 0; }
+    if [[ -e "/proc/asound/card${card}/usbid" ]]; then
+      usb+=("plughw:${card},${device}")
+    else
+      rest+=("plughw:${card},${device}")
+    fi
   done < <(arecord -l 2>/dev/null | sed -nE 's/^card ([0-9]+):.*device ([0-9]+):.*/\1 \2/p')
+
+  local dev
+  for dev in "${usb[@]}" "${rest[@]}"; do
+    usable "$dev" && { echo "$dev"; return 0; }
+  done
 
   echo "audio: no capture device worked, continuing without sound" >&2
   return 1

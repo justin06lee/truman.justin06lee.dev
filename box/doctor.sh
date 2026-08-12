@@ -73,6 +73,14 @@ if systemctl --quiet is-active truman-camera; then
     SOUND=$(journalctl -u truman-camera -n 200 --no-pager 2>/dev/null \
               | grep -oE 'audio: (using .*|no capture device worked.*|.* could not be opened.*)' | tail -1)
     [[ -n "$SOUND" ]] && info "$SOUND"
+    # Name every capture device in the exact form box.env takes, so choosing
+    # the right microphone is a copy-paste rather than an alsa lesson.
+    if arecord -l 2>/dev/null | grep -q '^card'; then
+      info "mics alsa can see — to pin one: TRUMAN_AUDIO_DEVICE=..."
+      arecord -l 2>/dev/null \
+        | sed -nE 's/^card [0-9]+: ([^ ]+) \[([^]]*)\].*device ([0-9]+): .*/  plughw:CARD=\1,DEV=\3   (\2)/p' \
+        | while IFS= read -r line; do info "$line"; done
+    fi
   else
     fail "camera unit is up but nothing is on the 'live' path"
     info "check: journalctl -u truman-camera -n 30"
