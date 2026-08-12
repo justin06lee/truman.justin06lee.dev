@@ -125,13 +125,18 @@ export function Player({ server, path, live, className }: PlayerProps) {
         await gathered(pc);
         if (cancelled) return;
 
-        const url = new URL(`${server.replace(/\/$/, "")}/${path}/whep`);
-        url.searchParams.set("user", "viewer");
-        url.searchParams.set("pass", token);
+        const url = `${server.replace(/\/$/, "")}/${path}/whep`;
 
+        // MediaMTX reads WHEP credentials from Basic auth only — ?user=&pass=
+        // in the query string is silently ignored, the auth callback sees
+        // empty credentials, and every viewer gets a 401. Its CORS preflight
+        // allows the Authorization header for exactly this.
         const response = await fetch(url, {
           method: "POST",
-          headers: { "content-type": "application/sdp" },
+          headers: {
+            "content-type": "application/sdp",
+            authorization: `Basic ${btoa(`viewer:${token}`)}`,
+          },
           body: pc.localDescription?.sdp ?? "",
         });
         if (!response.ok) throw new Error(String(response.status));
