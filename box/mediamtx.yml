@@ -64,6 +64,13 @@ webrtcIPsFromInterfaces: yes
 webrtcAdditionalHosts:
   - media.justin06lee.dev
 
+# Also gather a server-reflexive candidate over STUN: a numeric public
+# address, learned live, so it never goes stale when the ISP moves the IP.
+# Phone browsers are patchy about resolving the hostname candidate above,
+# and a viewer only needs one of the two to land.
+webrtcICEServers2:
+  - url: stun:stun.l.google.com:19302
+
 # HLS is off. It is the fallback for networks that block UDP, and it costs
 # ten-plus seconds of latency — turn it on deliberately if you need it, not by
 # default, or chat quietly stops matching the picture.
