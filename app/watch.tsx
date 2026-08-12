@@ -156,9 +156,12 @@ export function Watch({
   const live = status === "live" || status === "stopping";
 
   return (
-    <div className="flex min-h-dvh flex-col lg:h-dvh lg:flex-row">
-      <section className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-4 border-b border-white/10 px-4 py-3">
+    // One viewport, no page scroll — like a broadcast, only the chat moves.
+    // Portrait phone: video on top, chat gets the rest. Sideways phone: the
+    // video is the whole screen. Desktop: video left, chat rail right.
+    <div className="flex h-dvh flex-col lg:flex-row">
+      <section className="flex min-w-0 shrink-0 flex-col phone-landscape:min-h-0 phone-landscape:flex-1 lg:min-h-0 lg:flex-1">
+        <header className="flex items-center justify-between gap-4 border-b border-white/10 px-4 py-3 phone-landscape:hidden">
           <div className="flex items-center gap-3">
             <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-white/40">
               truman
@@ -190,7 +193,9 @@ export function Watch({
           </div>
         </header>
 
-        <div className="relative flex min-h-0 flex-1 items-center justify-center bg-black">
+        {/* order-first: on a phone the picture sits at the very top edge,
+            above its own header, the way a stream app holds it. */}
+        <div className="relative flex aspect-video w-full shrink-0 items-center justify-center bg-black max-lg:order-first phone-landscape:aspect-auto phone-landscape:min-h-0 phone-landscape:flex-1 lg:aspect-auto lg:min-h-0 lg:flex-1">
           {live && mediaServer ? (
             <>
               <Player
@@ -204,7 +209,7 @@ export function Watch({
               <Grain variant="noise" opacity={0.07} animate fixed={false} />
             </>
           ) : (
-            <div className="w-full max-w-md px-6 py-16">
+            <div className="w-full max-w-md px-6 py-8 lg:py-16">
               <EmptyState
                 icon={<CameraOff className="size-5" aria-hidden="true" />}
                 title={
@@ -221,7 +226,7 @@ export function Watch({
         </div>
       </section>
 
-      <aside className="flex min-h-0 w-full flex-col border-t border-white/10 lg:h-full lg:w-80 lg:border-t-0 lg:border-l">
+      <aside className="flex min-h-0 w-full flex-1 flex-col border-white/10 pb-[env(safe-area-inset-bottom)] phone-landscape:hidden lg:h-full lg:w-80 lg:flex-none lg:border-l">
         <div className="flex items-baseline justify-between border-b border-white/10 px-4 py-3">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-white/40">
             chat
@@ -231,7 +236,6 @@ export function Watch({
 
         <ChatLog
           messages={messages}
-          className="h-[50vh] lg:h-auto"
           empty={
             <p className="py-8 text-center text-[13px] text-white/30">
               nobody has said anything yet.

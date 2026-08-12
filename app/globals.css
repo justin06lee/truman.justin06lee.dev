@@ -54,6 +54,13 @@ body {
   --color-tally: var(--tally);
 }
 
+/*
+ * a phone held sideways is a screen-sized video and nothing else. scoped by
+ * height rather than orientation alone, because desktop windows are also
+ * landscape and must keep the full layout.
+ */
+@custom-variant phone-landscape (@media (orientation: landscape) and (max-height: 500px));
+
 /* the scrollbar is functional, just invisible — house convention. */
 * {
   scrollbar-width: none;
