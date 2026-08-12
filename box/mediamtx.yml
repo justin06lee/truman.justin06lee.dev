@@ -48,14 +48,21 @@ rtmp: no
 webrtc: yes
 webrtcAddress: :8889
 
-# WebRTC needs a UDP path back to the viewer. Forward this port on the router
-# alongside 8889/tcp, and put the public address in webrtcAdditionalHosts —
-# without it, candidates advertise a 192.168.x address that nobody outside the
-# house can reach.
+# WebRTC needs a UDP path back to the viewer. Forward 8189/udp on the router
+# (the video does not travel through Caddy), alongside 443/tcp for the
+# signalling and 80/tcp for Caddy's certificate. Do not forward 8889.
 webrtcLocalUDPAddress: :8189
 webrtcIPsFromInterfaces: yes
-webrtcAdditionalHosts: []
-  # - media.justin06lee.dev
+
+# The public name viewers reach this box by. Without it here, MediaMTX offers
+# only its 192.168.x address as an ICE candidate and every viewer connects
+# and then sees nothing.
+#
+# Written as a real list rather than `[]` with a commented entry underneath:
+# that shape cannot be uncommented into valid yaml, and mediamtx refuses to
+# start on the result.
+webrtcAdditionalHosts:
+  - media.justin06lee.dev
 
 # HLS is off. It is the fallback for networks that block UDP, and it costs
 # ten-plus seconds of latency — turn it on deliberately if you need it, not by

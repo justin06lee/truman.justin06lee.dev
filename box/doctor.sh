@@ -70,6 +70,9 @@ if systemctl --quiet is-active truman-camera; then
        -i "rtsp://box:${TRUMAN_BOX_KEY}@127.0.0.1:8554/live" \
        -show_entries format=duration >/dev/null 2>&1; then
     pass "the camera is publishing to rtsp://…/live"
+    SOUND=$(journalctl -u truman-camera -n 200 --no-pager 2>/dev/null \
+              | grep -oE 'audio: (using .*|no capture device worked.*|.* could not be opened.*)' | tail -1)
+    [[ -n "$SOUND" ]] && info "$SOUND"
   else
     fail "camera unit is up but nothing is on the 'live' path"
     info "check: journalctl -u truman-camera -n 30"
