@@ -58,9 +58,16 @@ fi
 
 systemctl daemon-reload
 
+echo "==> boot"
+# A power cut must not need a human afterwards. The camera and recorder stay
+# un-enabled on purpose: the agent starts and stops them with the site's
+# switch, and enabling them here would put the room on the air at every boot
+# regardless of what the switch says.
+systemctl enable mediamtx caddy truman-agent
+
 echo
 echo "done. next:"
 echo "  1. sudoedit /etc/truman/box.env      # paste TRUMAN_BOX_KEY, set the camera device"
-echo "  2. sudo systemctl enable --now mediamtx truman-agent"
+echo "  2. sudo systemctl start mediamtx caddy truman-agent   # boot-enabled above; start them now"
 echo "  3. sudo ./forward.sh                 # opens the router ports (or tells you how)"
 echo "  4. ./doctor.sh                       # checks everything before you trust it"
