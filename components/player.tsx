@@ -167,6 +167,15 @@ export function Player({ server, path, live, className }: PlayerProps) {
     };
   }, [live, server, path]);
 
+  // Where the player is trying to reach, for the failure copy. A bare
+  // hostname is what someone would actually check.
+  let host = server;
+  try {
+    host = new URL(server).host;
+  } catch {
+    // Leave it as given; a malformed url is itself the useful thing to show.
+  }
+
   return (
     <div className={className}>
       <video
@@ -176,6 +185,30 @@ export function Player({ server, path, live, className }: PlayerProps) {
         muted={muted}
         className="h-full w-full bg-black object-contain"
       />
+
+      {/*
+        A live feed that hasn't arrived is a black rectangle, which is
+        indistinguishable from a dark room and from a broken deployment. Say
+        which it is: the box reporting "live" only means the camera process is
+        up, and the video still has to cross the network on its own.
+      */}
+      {shown !== "playing" && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80 px-6 text-center">
+          {shown === "connecting" ? (
+            <p className="text-[15px] text-white/55">connecting to the camera...</p>
+          ) : (
+            <div className="max-w-sm">
+              <p className="text-[15px] text-white">can&apos;t reach the camera</p>
+              <p className="mt-2 text-[13px] leading-6 text-white/55">
+                the box says it&apos;s live, but no video is arriving from{" "}
+                <span className="font-mono text-white/70">{host || "nowhere"}</span>.
+                usually dns, a closed port, or caddy not running.
+              </p>
+              <p className="mt-2 text-[13px] text-white/40">retrying...</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Autoplay with sound is blocked until the page has been interacted
           with, so the feed starts muted and says so rather than appearing

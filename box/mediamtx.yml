@@ -18,7 +18,12 @@ authHTTPAddress: https://truman.justin06lee.dev/api/media/auth
 
 # Nothing is exempt. In particular the metrics and pprof endpoints stay shut —
 # the auth route refuses every action except publish, read and playback.
-authHTTPExclude: []
+# ...except the read-only api, which is bound to loopback below and never
+# leaves the box. The agent asks it whether frames are actually arriving, so
+# that "live" on the website means the stream is up rather than merely that
+# the camera process didn't exit.
+authHTTPExclude:
+  - action: api
 
 ###############################################################################
 # Protocols
@@ -30,6 +35,10 @@ authHTTPExclude: []
 # RTMP cannot carry Opus, and WebRTC cannot carry AAC. MediaMTX does not
 # transcode, so publishing over RTMP gives you a stream with audio no browser
 # can play. RTSP carries Opus end to end.
+# Read-only, loopback only. Nothing outside the box can reach 9997.
+api: yes
+apiAddress: 127.0.0.1:9997
+
 rtsp: yes
 rtspAddress: 127.0.0.1:8554
 rtspTransports: [tcp]

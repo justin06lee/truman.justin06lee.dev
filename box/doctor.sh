@@ -85,6 +85,25 @@ else
   fail "the agent is not running — sudo systemctl enable --now truman-agent"
 fi
 
+# --------------------------------------------------- is anything really live?
+READY=$(curl -fsS -m 3 http://127.0.0.1:9997/v3/paths/get/live 2>/dev/null || true)
+if [[ -z "$READY" ]]; then
+  info "mediamtx api not answering — 'live' on the site will fall back to"
+  info "  'is the camera unit up', which can say live over a black screen"
+elif [[ "$READY" == *'"ready":true'* ]]; then
+  pass "mediamtx has frames on the 'live' path"
+else
+  if systemctl --quiet is-active truman-camera; then
+    fail "camera unit is up but mediamtx has no frames — ffmpeg is failing"
+    info "this is the case that looks like 'live' with a black screen"
+    info "check: journalctl -u truman-camera -n 40 --no-pager"
+    info "a wrong pixel format or size is the usual cause; compare"
+    info "  TRUMAN_VIDEO_SIZE/FPS against: v4l2-ctl -d $DEV --list-formats-ext"
+  else
+    info "nothing publishing — normal while the switch is off"
+  fi
+fi
+
 # ------------------------------------------------------------------- outward
 MEDIA_HOST=$(grep -oE '^[a-z0-9.-]+\.[a-z]+' /etc/caddy/Caddyfile 2>/dev/null | head -1)
 if [[ -n "$MEDIA_HOST" ]]; then
@@ -93,6 +112,22 @@ if [[ -n "$MEDIA_HOST" ]]; then
   [[ -n "$RESOLVED" ]] && info "  resolves to $RESOLVED" \
                        || info "  does not resolve yet — dns not pointed here"
 fi
+if [[ -n "$MEDIA_HOST" ]]; then
+  if systemctl --quiet is-active caddy; then
+    pass "caddy is running"
+  else
+    fail "caddy is not running — viewers have no https endpoint to fetch video from"
+    info "this is the black-screen-while-live case. fix: sudo systemctl enable --now caddy"
+  fi
+  CODE=$(curl -s -o /dev/null -w '%{http_code}' -m 8 "https://$MEDIA_HOST" 2>/dev/null)
+  if [[ "$CODE" == "000" ]]; then
+    fail "https://$MEDIA_HOST is not reachable from this box"
+    info "dns, port forwarding, or caddy. until this works, the page shows black"
+  else
+    pass "https://$MEDIA_HOST answers (HTTP $CODE)"
+  fi
+fi
+
 PUBLIC=$(curl -s -m 5 https://api.ipify.org 2>/dev/null)
 LOCAL=$(ip -4 addr show scope global | grep -oE 'inet [0-9.]+' | awk '{print $2}' | head -1)
 info "public ip $PUBLIC, this box $LOCAL"

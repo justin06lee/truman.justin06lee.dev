@@ -21,6 +21,23 @@ RECORDER="truman-record.service"
 
 running() { systemctl --quiet is-active "$CAMERA"; }
 
+# Whether frames are actually arriving, which is not the same question as
+# whether the camera process is up: ffmpeg crash-looping on a bad pixel format
+# leaves the unit "active" while nothing reaches a viewer. Reporting the unit
+# would make the badge on the website say "live" over a black screen, which is
+# the one thing it exists not to do.
+#
+# Falls back to the unit when the api is unreachable — an older mediamtx.yml
+# without `api: yes` should degrade to the previous behaviour, not to always
+# reporting dark.
+publishing() {
+  local body
+  body="$(curl -fsS -m 3 "http://127.0.0.1:9997/v3/paths/get/live" 2>/dev/null)" || {
+    running; return
+  }
+  [[ "$body" == *'"ready":true'* ]]
+}
+
 start_session() {
   systemctl start "$CAMERA"
   # Recorder second: it waits for the publish to land, but starting it first
@@ -54,7 +71,7 @@ while true; do
   esac
 
   live=false
-  running && live=true
+  publishing && live=true
 
   curl -fsS -m 10 -X POST "$TRUMAN_SITE/api/stream/report" \
     -H "Authorization: Bearer $TRUMAN_BOX_KEY" \
