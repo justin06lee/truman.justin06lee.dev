@@ -4,6 +4,13 @@
 # post an SDP offer from an https page to an http endpoint, so this is not
 # optional once the site is on https.
 
+# The site itself, next to the media it fronts. Serverless billed every chat
+# poll; this box doesn't. The box's own services reach this name through a
+# loopback pin in /etc/hosts, because the router will not hairpin.
+truman.justin06lee.dev {
+	reverse_proxy 127.0.0.1:3000
+}
+
 media.justin06lee.dev {
 	# WHEP. MediaMTX does its own auth via the callback to truman, so Caddy
 	# passes these straight through.

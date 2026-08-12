@@ -14,7 +14,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 echo "==> packages"
-pacman -S --needed --noconfirm ffmpeg caddy curl v4l-utils alsa-utils
+pacman -S --needed --noconfirm ffmpeg caddy curl v4l-utils alsa-utils nodejs npm
 
 if ! command -v mediamtx >/dev/null; then
   echo

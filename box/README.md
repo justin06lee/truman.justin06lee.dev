@@ -18,9 +18,20 @@ Nothing here runs on Vercel.
 | `truman-agent` | polls the site for the switch, drives the other two, reports back | yes |
 | `truman-camera` | ffmpeg: webcam + mic, published to MediaMTX | **no** |
 | `truman-record` | ffmpeg: the 400x timelapse | **no** |
+| `truman-site` | next.js — the website itself, behind caddy | yes |
 
 The camera and recorder are started by the agent, never by systemd at boot.
 That's the whole point — the switch lives on the website.
+
+The site itself moved here from Vercel, where every chat poll was a billed
+function call — a page whose whole point is a poll loop is the worst possible
+serverless tenant. It runs as `truman-site` (`next start` behind the same
+Caddy), with secrets in `.env.local` at the repo root, `0600`. Deploy with
+`./site-update.sh` after master moves. Its DNS is an A record to the public
+IP, grey cloud, exactly like the media host — and because the router will not
+hairpin, the box pins both names to loopback in `/etc/hosts`:
+
+    127.0.0.1 truman.justin06lee.dev media.justin06lee.dev
 
 They start and stop **together**, which is what makes an episode match one
 sitting. Driving the recorder from MediaMTX's `runOnReady` instead would end

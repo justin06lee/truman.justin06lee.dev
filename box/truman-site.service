@@ -1,0 +1,19 @@
+[Unit]
+Description=truman — the site itself, next to the camera it serves
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=justin06lee
+WorkingDirectory=/home/justin06lee/truman.justin06lee.dev
+Environment=NODE_ENV=production
+# npm rather than a path into node_modules: the bin location is next's
+# business, and this survives it moving. Secrets come from .env.local in the
+# working directory, 0600, which next loads on its own.
+ExecStart=/usr/bin/npm run start
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
