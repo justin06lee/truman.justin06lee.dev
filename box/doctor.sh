@@ -105,6 +105,7 @@ else
 fi
 
 # ------------------------------------------------------------------- outward
+PUBLIC=$(curl -s -m 5 https://api.ipify.org 2>/dev/null)
 MEDIA_HOST=$(grep -oE '^[a-z0-9.-]+\.[a-z]+' /etc/caddy/Caddyfile 2>/dev/null | head -1)
 if [[ -n "$MEDIA_HOST" ]]; then
   info "caddy serves: $MEDIA_HOST"
@@ -122,13 +123,25 @@ if [[ -n "$MEDIA_HOST" ]]; then
   CODE=$(curl -s -o /dev/null -w '%{http_code}' -m 8 "https://$MEDIA_HOST" 2>/dev/null)
   if [[ "$CODE" == "000" ]]; then
     fail "https://$MEDIA_HOST is not reachable from this box"
-    info "dns, port forwarding, or caddy. until this works, the page shows black"
+    info "until this works, the page shows black. you need all of:"
+    info "  A record   $MEDIA_HOST  ->  \${PUBLIC:-your public ip}"
+    info "  forward    443/tcp   -> this box   (https)"
+    info "  forward    80/tcp    -> this box   (caddy's certificate)"
+    info "  forward    8189/udp  -> this box   (the video itself)"
+    info "  mediamtx.yml: webrtcAdditionalHosts must list $MEDIA_HOST"
+    info "do NOT forward 8889 — caddy fronts it on loopback"
   else
     pass "https://$MEDIA_HOST answers (HTTP $CODE)"
+    if grep -qE "^\s*-\s*$MEDIA_HOST" "${MTX_CONF:-/etc/mediamtx/mediamtx.yml}" 2>/dev/null; then
+      pass "mediamtx advertises $MEDIA_HOST as an ice candidate"
+    else
+      fail "webrtcAdditionalHosts does not list $MEDIA_HOST"
+      info "the page will connect and then show nothing: mediamtx is handing"
+      info "viewers a 192.168.x address they cannot reach"
+    fi
   fi
 fi
 
-PUBLIC=$(curl -s -m 5 https://api.ipify.org 2>/dev/null)
 LOCAL=$(ip -4 addr show scope global | grep -oE 'inet [0-9.]+' | awk '{print $2}' | head -1)
 info "public ip $PUBLIC, this box $LOCAL"
 if [[ "$LOCAL" =~ ^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\. ]]; then

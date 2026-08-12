@@ -95,10 +95,30 @@ If your public address appears on a local interface, you're directly
 reachable. If the local address is in `100.64.0.0/10`, you're behind CGNAT,
 inbound connections are impossible, and you need the relay.
 
-**Direct.** Forward `8889/tcp` and `8189/udp` to the box, point
-`media.justin06lee.dev` at your public IP, and add that hostname to
-`webrtcAdditionalHosts` in `mediamtx.yml`. Without that last step MediaMTX
-advertises a `192.168.x` candidate nobody outside the house can reach.
+**Direct.** Three forwards, an A record, and one config line.
+
+| forward | to the box | why |
+|---|---|---|
+| `443/tcp` | yes | https. Caddy terminates TLS here and proxies to MediaMTX on loopback |
+| `80/tcp` | yes | lets Caddy get its certificate over the ACME http challenge |
+| `8189/udp` | yes | the video itself. WebRTC media does not go through Caddy |
+
+**Do not forward 8889.** Caddy is the only thing that should be exposed;
+MediaMTX listens on loopback and is reached through it. Forwarding 8889 would
+publish an unencrypted endpoint beside the encrypted one, and a browser on an
+https page refuses to talk to it anyway.
+
+Then point `media.justin06lee.dev` at your public IP with an A record, and add
+that hostname to `webrtcAdditionalHosts` in `mediamtx.yml`. Without that last
+step MediaMTX advertises a `192.168.x` ICE candidate nobody outside the house
+can reach, and the page connects and then shows nothing.
+
+If DNS is on Cloudflare the record must be **DNS only** (grey cloud, not
+orange). The proxy does not carry WebRTC's UDP, so an orange cloud breaks the
+video while making everything else look correct.
+
+Residential IPs move. When it changes, the A record needs changing with it —
+dynamic DNS, or notice the day it breaks.
 
 Two things to know rather than discover: each viewer gets their own copy of
 the stream, so five people at 2.5 Mbps is 12.5 Mbps of sustained upload; and
