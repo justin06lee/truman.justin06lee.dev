@@ -165,6 +165,24 @@ fi
 
 LOCAL=$(ip -4 addr show scope global | grep -oE 'inet [0-9.]+' | awk '{print $2}' | head -1)
 info "public ip $PUBLIC, this box $LOCAL"
+
+# The router's port-forward rules point at whatever address this box had when
+# they were written. AT&T's gateway has no straightforward per-device
+# reservation, so rather than fighting it, remember the address and say so
+# when it moves — the failure is otherwise silent and looks like every other
+# black screen.
+SEEN=/var/lib/truman/last-lan-ip
+if [[ -r "$SEEN" ]]; then
+  WAS=$(cat "$SEEN")
+  if [[ "$WAS" != "$LOCAL" ]]; then
+    fail "this box moved: $WAS -> $LOCAL"
+    info "the router is still forwarding 443/80/8189 to $WAS, so nothing arrives"
+    info "repoint the three rules at $LOCAL in Firewall > NAT/Gaming"
+  fi
+else
+  mkdir -p "$(dirname "$SEEN")" 2>/dev/null
+fi
+echo "$LOCAL" > "$SEEN" 2>/dev/null || true
 if [[ "$LOCAL" =~ ^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\. ]]; then
   info "  that is CGNAT — viewers cannot reach you directly, you need the relay"
 fi

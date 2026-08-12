@@ -117,8 +117,15 @@ If DNS is on Cloudflare the record must be **DNS only** (grey cloud, not
 orange). The proxy does not carry WebRTC's UDP, so an orange cloud breaks the
 video while making everything else look correct.
 
-Residential IPs move. When it changes, the A record needs changing with it —
-dynamic DNS, or notice the day it breaks.
+Residential IPs move. When the public one changes, the A record needs
+changing with it — dynamic DNS, or notice the day it breaks.
+
+The box's *private* address matters too, because the forwards point at it.
+AT&T's gateway has no straightforward per-device DHCP reservation — what it
+has is inside Subnets & DHCP, which also governs the whole LAN and is not
+worth poking for this. Leave it on DHCP; `doctor.sh` remembers the address
+and tells you if it ever moves, which is the only thing the reservation was
+protecting against.
 
 Two things to know rather than discover: each viewer gets their own copy of
 the stream, so five people at 2.5 Mbps is 12.5 Mbps of sustained upload; and
