@@ -1,0 +1,5 @@
+# The two public names, answered with whichever address works from where the
+# question came from: lan clients get the lan address, tailnet clients the
+# tailscale one. `localise-queries` in dnsmasq.conf is what picks per subnet.
+192.168.1.253 truman.justin06lee.dev media.justin06lee.dev
+100.102.72.87 truman.justin06lee.dev media.justin06lee.dev

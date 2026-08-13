@@ -46,6 +46,7 @@ install -Dm644 Caddyfile /etc/caddy/Caddyfile
 
 echo "==> dnsmasq"
 install -Dm644 dnsmasq.conf /etc/dnsmasq.conf
+install -Dm644 dns-hosts /etc/truman/dns-hosts
 
 echo "==> directories"
 install -d -m 755 /var/lib/truman/clips
