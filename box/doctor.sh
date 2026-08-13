@@ -115,9 +115,26 @@ else
   fi
 fi
 
+# ------------------------------------------------------------------ the site
+if systemctl --quiet is-active truman-site; then
+  pass "truman-site is running"
+  SITECODE=$(curl -s -o /dev/null -w '%{http_code}' -m 5 http://127.0.0.1:3000/ 2>/dev/null)
+  if [[ "$SITECODE" != "000" ]]; then
+    pass "the site answers on :3000 (HTTP $SITECODE)"
+  else
+    fail "truman-site is up but :3000 answers nothing"
+    info "check: journalctl -u truman-site -n 30 --no-pager"
+  fi
+else
+  info "truman-site is not running — the site lives on vercel, or run:"
+  info "  sudo systemctl enable --now truman-site"
+fi
+
 # ------------------------------------------------------------------- outward
 PUBLIC=$(curl -s -m 5 https://api.ipify.org 2>/dev/null)
-MEDIA_HOST=$(grep -oE '^[a-z0-9.-]+\.[a-z]+' /etc/caddy/Caddyfile 2>/dev/null | head -1)
+# The caddyfile holds two vhosts now; the media one is whichever block
+# proxies to mediamtx on 8889, not whichever happens to come first.
+MEDIA_HOST=$(awk '/^[a-z0-9.-]+\.[a-z]+ \{/ {host=$1} /127\.0\.0\.1:8889/ {print host; exit}' /etc/caddy/Caddyfile 2>/dev/null)
 if [[ -n "$MEDIA_HOST" ]]; then
   info "caddy serves: $MEDIA_HOST"
   RESOLVED=$(getent hosts "$MEDIA_HOST" | awk '{print $1}' | head -1)
