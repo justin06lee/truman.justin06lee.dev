@@ -180,14 +180,19 @@ if [[ -n "$MEDIA_HOST" ]]; then
     info "  if that fails too, the forwards are missing. run: sudo ./forward.sh"
   fi
 
-  if grep -qE "^\s*-\s*$MEDIA_HOST" "${MTX_CONF:-/etc/mediamtx/mediamtx.yml}" 2>/dev/null; then
-    pass "mediamtx advertises $MEDIA_HOST as an ice candidate"
-  else
-    fail "webrtcAdditionalHosts does not list $MEDIA_HOST"
-    info "the page will connect and then show nothing: mediamtx is handing"
-    info "viewers a 192.168.x address they cannot reach"
-    info "uncomment it in ${MTX_CONF:-/etc/mediamtx/mediamtx.yml}, then:"
-    info "  sudo systemctl restart mediamtx"
+  # The advertised candidate is the numeric public ip (a hostname emits no
+  # candidate at all — see mediamtx.yml), so it can go stale when the isp
+  # moves the address. Compare it against the live one and say so loudly:
+  # the failure is otherwise "connects, then black" for every outside viewer.
+  if [[ -n "$PUBLIC" ]]; then
+    if grep -qE "^\s*-\s*$PUBLIC\s*$" "${MTX_CONF:-/etc/mediamtx/mediamtx.yml}" 2>/dev/null; then
+      pass "mediamtx advertises the current public ip ($PUBLIC) as an ice candidate"
+    else
+      fail "webrtcAdditionalHosts does not carry the current public ip ($PUBLIC)"
+      info "the isp moved it, or it was never set. put the ip in"
+      info "  ${MTX_CONF:-/etc/mediamtx/mediamtx.yml} under webrtcAdditionalHosts, then:"
+      info "  sudo systemctl restart mediamtx"
+    fi
   fi
 fi
 

@@ -54,22 +54,23 @@ webrtcAddress: :8889
 webrtcLocalUDPAddress: :8189
 webrtcIPsFromInterfaces: yes
 
-# The public name viewers reach this box by. Without it here, MediaMTX offers
-# only its 192.168.x address as an ICE candidate and every viewer connects
-# and then sees nothing.
+# The public address viewers reach this box by, advertised as an ICE
+# candidate on the 8189 mux. Without it, MediaMTX offers only its own
+# interface addresses and every outside viewer connects and then sees
+# nothing.
+#
+# The numeric ip, deliberately, twice over: a hostname here emits no
+# candidate at all on this mediamtx (verified against the answer SDP), and a
+# STUN-gathered srflx was tried and binds an ephemeral socket whose NAT
+# mapping carries a random public port no forward points at. The literal ip
+# rides the real 8189 mapping. It goes stale if the ISP moves the ip — the
+# doctor compares it against the live public address and says so.
 #
 # Written as a real list rather than `[]` with a commented entry underneath:
 # that shape cannot be uncommented into valid yaml, and mediamtx refuses to
 # start on the result.
 webrtcAdditionalHosts:
-  - media.justin06lee.dev
-
-# Also gather a server-reflexive candidate over STUN: a numeric public
-# address, learned live, so it never goes stale when the ISP moves the IP.
-# Phone browsers are patchy about resolving the hostname candidate above,
-# and a viewer only needs one of the two to land.
-webrtcICEServers2:
-  - url: stun:stun.l.google.com:19302
+  - 107.214.144.123
 
 # HLS is off. It is the fallback for networks that block UDP, and it costs
 # ten-plus seconds of latency — turn it on deliberately if you need it, not by
