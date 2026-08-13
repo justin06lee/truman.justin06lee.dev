@@ -28,10 +28,15 @@ function call — a page whose whole point is a poll loop is the worst possible
 serverless tenant. It runs as `truman-site` (`next start` behind the same
 Caddy), with secrets in `.env.local` at the repo root, `0600`. Deploy with
 `./site-update.sh` after master moves. Its DNS is an A record to the public
-IP, grey cloud, exactly like the media host — and because the router will not
-hairpin, the box pins both names to loopback in `/etc/hosts`:
+IP, grey cloud, exactly like the media host.
 
-    127.0.0.1 truman.justin06lee.dev media.justin06lee.dev
+The router will not hairpin, so lan devices asking public dns for either name
+would reach nothing. The box therefore runs `dnsmasq` as the house resolver:
+both names answer with the box's lan address, everything else forwards to
+1.1.1.1. Point the gateway's DHCP at this box (primary dns `192.168.1.253`,
+secondary a public resolver) and every device on the wifi just works. The
+box's own calls to its public names ride the gateway's one working hairpin
+path and need no pinning.
 
 They start and stop **together**, which is what makes an episode match one
 sitting. Driving the recorder from MediaMTX's `runOnReady` instead would end

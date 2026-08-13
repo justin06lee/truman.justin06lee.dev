@@ -14,7 +14,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 echo "==> packages"
-pacman -S --needed --noconfirm ffmpeg caddy curl v4l-utils alsa-utils nodejs npm
+pacman -S --needed --noconfirm ffmpeg caddy curl v4l-utils alsa-utils nodejs npm dnsmasq
 
 if ! command -v mediamtx >/dev/null; then
   echo
@@ -44,6 +44,9 @@ echo "    -> $MTX_CONF"
 echo "==> caddy"
 install -Dm644 Caddyfile /etc/caddy/Caddyfile
 
+echo "==> dnsmasq"
+install -Dm644 dnsmasq.conf /etc/dnsmasq.conf
+
 echo "==> directories"
 install -d -m 755 /var/lib/truman/clips
 systemd-tmpfiles --create >/dev/null
@@ -63,7 +66,7 @@ echo "==> boot"
 # un-enabled on purpose: the agent starts and stops them with the site's
 # switch, and enabling them here would put the room on the air at every boot
 # regardless of what the switch says.
-systemctl enable mediamtx caddy truman-agent truman-site
+systemctl enable mediamtx caddy truman-agent truman-site dnsmasq
 
 echo
 echo "done. next:"
