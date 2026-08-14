@@ -156,20 +156,18 @@ stream whose audio no browser will ever play.
 
 Everything visible comes from [chrome](https://chrome.justin06lee.dev):
 `live-badge`, `avatar-stack`, `empty-state`, `grain`, `stat-tile`,
-`login-form`, `switch`, `card`, `toast`.
+`login-form`, `switch`, `card`, `toast`, and `dialog` — the last one guarding
+the two actions here that cannot be walked back (wiping the log, deleting an
+episode).
 
-Two components were built here because the registry doesn't have them —
-`chat-log` and `chat-composer` — and they are written to the registry's bar so
-they can be upstreamed rather than left as one-offs. `components/player.tsx`
-stays local on purpose: it's a WHEP client bound to one media server's
-endpoint shape, not a UI primitive.
-
-`live-badge` and `avatar-stack` were **copied from the local registry
-checkout**, not installed by the CLI. The deployed registry at
-chrome.justin06lee.dev is thirteen components behind the repo — the whole
-audio family that listen.justin06lee.dev contributed, plus these two, are
-committed but not served. Once the site is redeployed they can be re-added
-the normal way and `chrome diff` will confirm they match.
+Two components were built here because the registry didn't have them —
+`chat-log` and `chat-composer` — and have since been **upstreamed**: they
+live in the registry now, documented and served, and this repo's copies are
+the canonical ones (`chrome diff` reports no drift). Redeploying the
+registry for them also shipped the audio family listen.justin06lee.dev had
+contributed, which had been sitting committed-but-unserved.
+`components/player.tsx` stays local on purpose: it's a WHEP-plus-HLS client
+bound to one media server's endpoint shape, not a UI primitive.
 
 The site's one accent is `--tally`, lit only while the camera is actually
 sending frames, so the colour itself is the information. Nothing else spends
