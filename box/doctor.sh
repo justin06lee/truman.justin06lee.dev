@@ -121,6 +121,15 @@ else
   fi
 fi
 
+# -------------------------------------------------------------- the announcer
+if systemctl --quiet is-active truman-announcer; then
+  pass "the announcer is running — chat gets spoken into the room"
+elif command -v piper >/dev/null; then
+  info "announcer not running — sudo systemctl enable --now truman-announcer"
+else
+  info "piper not installed — chat stays silent in the room (yay -S piper-tts-bin)"
+fi
+
 # ------------------------------------------------------------------ the site
 if systemctl --quiet is-active truman-site; then
   pass "truman-site is running"

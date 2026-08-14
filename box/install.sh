@@ -31,10 +31,11 @@ if ! command -v mediamtx >/dev/null; then
 fi
 
 echo "==> scripts and units"
-install -Dm755 camera.sh agent.sh record.sh backup.sh ipwatch.sh -t /opt/truman/
+install -Dm755 camera.sh agent.sh record.sh backup.sh ipwatch.sh announcer.sh -t /opt/truman/
 install -Dm644 truman-camera.service truman-record.service truman-agent.service truman-site.service \
                truman-backup.service truman-backup.timer \
-               truman-ipwatch.service truman-ipwatch.timer -t /etc/systemd/system/
+               truman-ipwatch.service truman-ipwatch.timer \
+               truman-announcer.service -t /etc/systemd/system/
 install -Dm644 truman.tmpfiles.conf /etc/tmpfiles.d/truman.conf
 
 echo "==> mediamtx config"
@@ -47,6 +48,23 @@ echo "    -> $MTX_CONF"
 
 echo "==> caddy"
 install -Dm644 Caddyfile /etc/caddy/Caddyfile
+
+echo "==> the announcer's voice"
+# piper is AUR-only, like mediamtx — but unlike mediamtx the announcer is a
+# garnish, so its absence warns instead of stopping the install.
+if command -v piper >/dev/null; then
+  VOICES=/opt/truman/voices
+  VOICE_BASE="https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/danny/low"
+  if [[ ! -s "$VOICES/en_US-danny-low.onnx" ]]; then
+    echo "    fetching the danny voice (~60 MB, one time)"
+    install -d "$VOICES"
+    curl -fsSL -o "$VOICES/en_US-danny-low.onnx" "$VOICE_BASE/en_US-danny-low.onnx?download=true"
+    curl -fsSL -o "$VOICES/en_US-danny-low.onnx.json" "$VOICE_BASE/en_US-danny-low.onnx.json?download=true"
+  fi
+else
+  echo "    piper is not installed, so chat stays silent in the room."
+  echo "    it's in the AUR:  yay -S piper-tts-bin   then re-run this script."
+fi
 
 echo "==> dnsmasq"
 install -Dm644 dnsmasq.conf /etc/dnsmasq.conf
@@ -77,6 +95,8 @@ echo "==> boot"
 # switch, and enabling them here would put the room on the air at every boot
 # regardless of what the switch says.
 systemctl enable mediamtx caddy truman-agent truman-site dnsmasq truman-backup.timer truman-ipwatch.timer
+# The announcer only when it has a voice to speak with.
+command -v piper >/dev/null && systemctl enable truman-announcer
 
 echo
 echo "done. next:"
