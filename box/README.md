@@ -51,28 +51,19 @@ value of `TRUMAN_BOX_KEY` from the site's environment.
 
 ## install
 
-MediaMTX is **not in the official repos**; it's in the AUR, and `mediamtx-bin`
-ships its own systemd unit.
+One command, run from this directory, re-runnable after any edit here:
 
 ```bash
-sudo pacman -S ffmpeg caddy curl v4l-utils
-yay -S mediamtx-bin        # or: git clone https://aur.archlinux.org/mediamtx-bin.git && makepkg -si
-
-sudo install -Dm755 camera.sh agent.sh record.sh -t /opt/truman/
-sudo install -Dm644 mediamtx.yml /etc/mediamtx/mediamtx.yml
-sudo install -Dm644 truman-camera.service truman-record.service truman-agent.service \
-                    -t /etc/systemd/system/
-sudo install -Dm644 truman.tmpfiles.conf /etc/tmpfiles.d/truman.conf
-sudo install -Dm644 Caddyfile /etc/caddy/Caddyfile
-
-sudo install -Dm600 box.env.example /etc/truman/box.env
-sudo systemd-tmpfiles --create
-sudo mkdir -p /var/lib/truman/clips
+sudo ./install.sh
 ```
 
-Check where the AUR package put its config — if it reads
-`/etc/mediamtx.yml` rather than `/etc/mediamtx/mediamtx.yml`, put it there
-instead (`systemctl cat mediamtx` shows the `ExecStart` path).
+It installs the packages, copies every script, unit and config to where it
+belongs, and prints the next steps. The only thing it can't do is MediaMTX
+itself — that is **not in the official repos**, it's in the AUR, and the
+script stops and says so until you've run `yay -S mediamtx-bin`. It also
+follows wherever the AUR package actually reads its config from
+(`systemctl cat mediamtx` shows the path), because the package disagrees
+with itself across versions.
 
 Then fill in the environment:
 
@@ -83,7 +74,7 @@ sudo systemctl enable --now mediamtx caddy truman-agent
 ```
 
 `/etc/truman/box.env` stays `0600` root-only. Every unit that needs it reads
-it through `EnvironmentFile=`, and all three run as root — nothing else on the
+it through `EnvironmentFile=`, and they run as root — nothing else on the
 box ever needs to read that key.
 
 ## find your devices first

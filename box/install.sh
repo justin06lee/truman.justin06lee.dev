@@ -14,7 +14,9 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 echo "==> packages"
-pacman -S --needed --noconfirm ffmpeg caddy curl v4l-utils alsa-utils nodejs npm dnsmasq
+# bun installs from bun.lock (npm would ignore it and re-resolve fresh);
+# nodejs stays because `next start` itself still runs on node.
+pacman -S --needed --noconfirm ffmpeg caddy curl v4l-utils alsa-utils nodejs bun jq dnsmasq
 
 if ! command -v mediamtx >/dev/null; then
   echo
