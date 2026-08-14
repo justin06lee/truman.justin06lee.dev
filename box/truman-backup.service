@@ -1,0 +1,9 @@
+[Unit]
+Description=truman — copy the clips somewhere that isn't this box
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/truman/box.env
+ExecStart=/opt/truman/backup.sh

@@ -31,6 +31,12 @@ media.justin06lee.dev {
 	# files — so Caddy asks truman whether the token is good before serving
 	# one. Without this the archive would be an open directory sitting behind
 	# a gated live stream.
+	#
+	# The token rides the query string (a native <video> element has no way
+	# to send a header), which means turning on Caddy's access log would
+	# write live tokens into it. They die in sixty seconds and are useless
+	# without a still-existing session, so this is a thing to know rather
+	# than a hole — but if you ever enable logging here, know it.
 	handle /clips/* {
 		forward_auth https://truman.justin06lee.dev {
 			uri /api/media/clip-auth?token={http.request.uri.query.token}

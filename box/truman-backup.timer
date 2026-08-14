@@ -1,0 +1,10 @@
+[Unit]
+Description=truman — daily clip backup
+
+[Timer]
+OnCalendar=daily
+# A box that was off at 00:00 still backs up when it comes back.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -16,7 +16,7 @@ cd "$(dirname "$0")"
 echo "==> packages"
 # bun installs from bun.lock (npm would ignore it and re-resolve fresh);
 # nodejs stays because `next start` itself still runs on node.
-pacman -S --needed --noconfirm ffmpeg caddy curl v4l-utils alsa-utils nodejs bun jq dnsmasq
+pacman -S --needed --noconfirm ffmpeg caddy curl v4l-utils alsa-utils nodejs bun jq dnsmasq rsync
 
 if ! command -v mediamtx >/dev/null; then
   echo
@@ -31,8 +31,9 @@ if ! command -v mediamtx >/dev/null; then
 fi
 
 echo "==> scripts and units"
-install -Dm755 camera.sh agent.sh record.sh -t /opt/truman/
-install -Dm644 truman-camera.service truman-record.service truman-agent.service truman-site.service -t /etc/systemd/system/
+install -Dm755 camera.sh agent.sh record.sh backup.sh -t /opt/truman/
+install -Dm644 truman-camera.service truman-record.service truman-agent.service truman-site.service \
+               truman-backup.service truman-backup.timer -t /etc/systemd/system/
 install -Dm644 truman.tmpfiles.conf /etc/tmpfiles.d/truman.conf
 
 echo "==> mediamtx config"
@@ -74,7 +75,7 @@ echo "==> boot"
 # un-enabled on purpose: the agent starts and stops them with the site's
 # switch, and enabling them here would put the room on the air at every boot
 # regardless of what the switch says.
-systemctl enable mediamtx caddy truman-agent truman-site dnsmasq
+systemctl enable mediamtx caddy truman-agent truman-site dnsmasq truman-backup.timer
 
 echo
 echo "done. next:"

@@ -56,6 +56,42 @@ export function authConfigured(): boolean {
   return Boolean(process.env.TRUMAN_PASSWORD || process.env.TRUMAN_OWNER_KEY);
 }
 
+/**
+ * Housekeeping that nothing schedules.
+ *
+ * Expired sessions only died when their own cookie next showed up, and
+ * rate-limit rows for one-time visitors never died at all — a shared Turso
+ * database quietly accreting rows forever. There is no cron here to hang
+ * this on, so it rides the busiest poll instead (/api/stream), at most once
+ * an hour per process, which is exactly often enough for tables where
+ * "stale" is measured in weeks.
+ */
+const SWEEP_EVERY_MS = 60 * 60 * 1000;
+let lastSweepAt = 0;
+
+export async function sweepExpired(): Promise<void> {
+  const now = Date.now();
+  if (now - lastSweepAt < SWEEP_EVERY_MS) return;
+  // Stamped before the awaits so concurrent polls skip rather than pile on.
+  lastSweepAt = now;
+
+  await initDb();
+  await db().batch(
+    [
+      {
+        sql: "DELETE FROM truman_sessions WHERE seen_at < ?",
+        args: [now - SESSION_TTL_MS],
+      },
+      // Rows mid-lockout stay; everything whose window has rolled over goes.
+      {
+        sql: "DELETE FROM truman_attempts WHERE (until IS NULL OR until < ?) AND first_at < ?",
+        args: [now, now - ATTEMPT_WINDOW_MS],
+      },
+    ],
+    "write",
+  );
+}
+
 export async function checkRateLimit(
   ip: string,
 ): Promise<{ ok: true } | { ok: false; until: number }> {

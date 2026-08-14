@@ -20,6 +20,7 @@ Nothing here runs on Vercel.
 | `truman-camera` | ffmpeg: webcam + mic, published to MediaMTX | **no** |
 | `truman-record` | ffmpeg: the 400x timelapse | **no** |
 | `truman-site` | next.js — the website itself, behind caddy | yes |
+| `truman-backup.timer` | daily rsync of the clips to `TRUMAN_BACKUP_DEST` — the clips are the only copy that ever existed | yes |
 
 The camera and recorder are started by the agent, never by systemd at boot.
 That's the whole point — the switch lives on the website.
