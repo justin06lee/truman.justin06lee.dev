@@ -1,0 +1,9 @@
+[Unit]
+Description=truman — repair what an isp address change breaks
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/truman/box.env
+ExecStart=/opt/truman/ipwatch.sh

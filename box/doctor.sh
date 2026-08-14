@@ -195,9 +195,10 @@ if [[ -n "$MEDIA_HOST" ]]; then
       pass "mediamtx advertises the current public ip ($PUBLIC) as an ice candidate"
     else
       fail "webrtcAdditionalHosts does not carry the current public ip ($PUBLIC)"
-      info "the isp moved it, or it was never set. put the ip in"
-      info "  ${MTX_CONF:-/etc/mediamtx/mediamtx.yml} under webrtcAdditionalHosts, then:"
-      info "  sudo systemctl restart mediamtx"
+      info "the isp moved it, or it was never set. truman-ipwatch.timer repairs"
+      info "  this within five minutes on its own — if it keeps failing, check:"
+      info "  journalctl -u truman-ipwatch -n 20   (or fix by hand: put the ip in"
+      info "  ${MTX_CONF:-/etc/mediamtx/mediamtx.yml} and restart mediamtx)"
     fi
   fi
 fi

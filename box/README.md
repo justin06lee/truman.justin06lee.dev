@@ -21,6 +21,7 @@ Nothing here runs on Vercel.
 | `truman-record` | ffmpeg: the 400x timelapse | **no** |
 | `truman-site` | next.js — the website itself, behind caddy | yes |
 | `truman-backup.timer` | daily rsync of the clips to `TRUMAN_BACKUP_DEST` — the clips are the only copy that ever existed | yes |
+| `truman-ipwatch.timer` | every 5 min: repair the ICE candidate and the A records when the isp moves the ip | yes |
 
 The camera and recorder are started by the agent, never by systemd at boot.
 That's the whole point — the switch lives on the website.
@@ -126,8 +127,11 @@ If DNS is on Cloudflare the record must be **DNS only** (grey cloud, not
 orange). The proxy does not carry WebRTC's UDP, so an orange cloud breaks the
 video while making everything else look correct.
 
-Residential IPs move. When the public one changes, the A record needs
-changing with it — dynamic DNS, or notice the day it breaks.
+Residential IPs move, and when this one does, two things go stale at once:
+the A records and the numeric ICE candidate in `mediamtx.yml`.
+`truman-ipwatch.timer` repairs both every five minutes — the candidate
+unconditionally, the DNS when `CLOUDFLARE_API_TOKEN` is set in `box.env`
+(otherwise it names the record to fix by hand in the journal).
 
 The box's *private* address matters too, because the forwards point at it.
 AT&T's gateway has no straightforward per-device DHCP reservation — what it
