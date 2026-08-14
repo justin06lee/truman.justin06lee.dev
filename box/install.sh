@@ -51,7 +51,12 @@ install -Dm644 dnsmasq.conf /etc/dnsmasq.conf
 install -Dm644 dns-hosts /etc/truman/dns-hosts
 
 echo "==> directories"
-install -d -m 755 /var/lib/truman/clips
+# The site deletes episodes now, and unlink needs write on the *directory*,
+# not the file. The recorder writes as root, so the directory is grouped to
+# the site's user (read from its unit) with setgid — every clip stays
+# deletable from the site without anything running as anyone new.
+SITE_USER=$(grep -oP '^User=\K.*' truman-site.service || echo root)
+install -d -m 2775 -o root -g "$SITE_USER" /var/lib/truman/clips
 systemd-tmpfiles --create >/dev/null
 
 echo "==> environment"

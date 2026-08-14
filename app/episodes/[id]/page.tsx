@@ -6,6 +6,7 @@ import { getSession } from "@/lib/auth";
 import { getEpisode } from "@/lib/episodes";
 import { mintToken } from "@/lib/media-token";
 import { formatClock, formatDuration } from "@/lib/timelapse";
+import { DeleteEpisodeButton } from "./delete-button";
 
 export const dynamic = "force-dynamic";
 
@@ -41,12 +42,15 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
 
   return (
     <main className="mx-auto w-full max-w-4xl px-6 py-12">
-      <Link
-        href="/episodes"
-        className="text-[13px] text-white/55 transition-colors hover:text-white"
-      >
-        all episodes
-      </Link>
+      <div className="flex items-center justify-between gap-4">
+        <Link
+          href="/episodes"
+          className="text-[13px] text-white/55 transition-colors hover:text-white"
+        >
+          all episodes
+        </Link>
+        {session.owner && <DeleteEpisodeButton id={episode.id} />}
+      </div>
 
       <h1 className="mt-6 text-2xl tracking-tight">
         {new Date(episode.startedAt).toLocaleDateString(undefined, {
