@@ -34,19 +34,22 @@ export async function DELETE(
   await deleteEpisode(id);
 
   // basename(), so a doctored path in the row can never point the unlink
-  // outside the clips directory.
+  // outside the clips directory. The poster rides the clip's name by
+  // convention (.jpg for .mp4) and goes with it.
   const clips = process.env.TRUMAN_CLIPS ?? "/var/lib/truman/clips";
   const clip = basename(episode.path);
   let removed = 0;
 
-  try {
-    await unlink(join(clips, clip));
-    removed += 1;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-      console.warn(
-        `[truman] episode ${id} deleted but its clip was not: ${String(error)}`,
-      );
+  for (const name of [clip, clip.replace(/\.mp4$/, ".jpg")]) {
+    try {
+      await unlink(join(clips, name));
+      removed += 1;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        console.warn(
+          `[truman] episode ${id} deleted but ${name} was not: ${String(error)}`,
+        );
+      }
     }
   }
 

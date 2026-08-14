@@ -32,6 +32,9 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
   const src = secret
     ? `${server.replace(/\/$/, "")}${episode.path}?token=${mintToken(session.id, secret, mintedAt)}`
     : "";
+  // The recorder files a poster beside every clip; a 404 here just leaves
+  // the element's usual black first-frame, so no fallback is needed.
+  const poster = src.replace(/\.mp4\?/, ".jpg?");
 
   const facts: [string, string][] = [
     ["recorded", formatDuration(episode.sourceSeconds)],
@@ -63,7 +66,7 @@ export default async function EpisodePage({ params }: PageProps<"/episodes/[id]"
       <div className="relative mt-6 border border-white/10">
         {src ? (
           <>
-            <video src={src} controls playsInline className="w-full bg-black" />
+            <video src={src} poster={poster} controls playsInline className="w-full bg-black" />
             <Grain variant="noise" opacity={0.06} fixed={false} />
           </>
         ) : (

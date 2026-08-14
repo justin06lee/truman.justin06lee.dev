@@ -7,7 +7,9 @@ import { EmptyState } from "@/components/chrome/empty-state";
 import { StatTile } from "@/components/chrome/stat-tile";
 import { getSession } from "@/lib/auth";
 import { episodeTotals, listEpisodes } from "@/lib/episodes";
+import { mintToken } from "@/lib/media-token";
 import { formatClock, formatDuration, SPEED } from "@/lib/timelapse";
+import { Poster } from "./poster";
 
 export const dynamic = "force-dynamic";
 
@@ -26,9 +28,23 @@ function timeOf(ms: number): string {
 }
 
 export default async function EpisodesPage() {
-  if (!(await getSession())) redirect("/login");
+  const session = await getSession();
+  if (!session) redirect("/login");
 
   const [episodes, totals] = await Promise.all([listEpisodes(), episodeTotals()]);
+
+  // One token serves every poster on the shelf — it names the session, not
+  // the file. Minted at render because the route is force-dynamic and a
+  // 60-second token minted at build time would be born expired.
+  const secret = process.env.TRUMAN_MEDIA_SECRET;
+  const server = (process.env.NEXT_PUBLIC_MEDIA_URL ?? "").replace(/\/$/, "");
+  // eslint-disable-next-line react-hooks/purity
+  const token = secret && server ? mintToken(session.id, secret, Date.now()) : "";
+
+  // Posters exist by convention: the recorder files <id>.jpg beside
+  // <id>.mp4. Older episodes have none, and <Poster> hides itself on the 404.
+  const posterOf = (path: string) =>
+    token ? `${server}${path.replace(/\.mp4$/, ".jpg")}?token=${token}` : "";
 
   return (
     <main className="mx-auto w-full max-w-5xl px-6 py-12">
@@ -80,6 +96,14 @@ export default async function EpisodesPage() {
           {episodes.map((episode) => (
             <li key={episode.id}>
               <Card className="h-full">
+                {posterOf(episode.path) && (
+                  <Link href={`/episodes/${episode.id}`} aria-hidden tabIndex={-1}>
+                    <Poster
+                      src={posterOf(episode.path)}
+                      alt={`one frame of ${dayOf(episode.startedAt)}`}
+                    />
+                  </Link>
+                )}
                 <CardHeader>
                   <CardTitle href={`/episodes/${episode.id}`}>
                     {dayOf(episode.startedAt)}
