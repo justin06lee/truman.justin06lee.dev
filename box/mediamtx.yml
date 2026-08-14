@@ -79,8 +79,10 @@ webrtcAdditionalHosts:
 # quietly stop matching the picture. Do not forward 8888; like 8889 it is
 # Caddy's to expose.
 #
-# Auth rides the same callback as everything else: the HLS server presents
-# the viewer's ?user=&pass= query credentials to /api/media/auth on each
+# Auth rides the same callback as everything else, and by Basic auth, like
+# WHEP: query credentials never reach the callback on this mediamtx
+# (measured against 1.19 — ?user=&pass= earns a 401 with zero callback
+# traffic). The player stamps the header on every playlist and segment
 # request, so "everyone out" cuts this path within seconds too.
 hls: yes
 hlsAddress: 127.0.0.1:8888

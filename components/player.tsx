@@ -116,11 +116,10 @@ export function Player({ server, path, live, className }: PlayerProps) {
     let retry: ReturnType<typeof setTimeout> | undefined;
     let refresh: ReturnType<typeof setInterval> | undefined;
     let attempt = 0;
-    // Set once the dynamic import proves this browser has neither MSE nor
-    // native HLS — from then on the retry loop stays on WHEP rather than
-    // failing into the same wall on every backoff.
+    // Set once the dynamic import proves this browser can't run hls.js —
+    // from then on the retry loop stays on WHEP rather than failing into
+    // the same wall on every backoff.
     let hlsUnsupported = false;
-    let nativeHls = false;
 
     // Both transports funnel through the media element eventually, so
     // "playing" is read off the element rather than trusted from either.
@@ -129,13 +128,7 @@ export function Player({ server, path, live, className }: PlayerProps) {
       attempt = 0;
       setStatus("playing");
     };
-    // Only the native-HLS path treats an element error as transport failure;
-    // WHEP hears about its failures from the peer connection instead.
-    const onVideoError = () => {
-      if (!cancelled && nativeHls) fail();
-    };
     video?.addEventListener("playing", onPlaying);
-    video?.addEventListener("error", onVideoError);
 
     async function connect() {
       if (cancelled) return;
@@ -146,7 +139,7 @@ export function Player({ server, path, live, className }: PlayerProps) {
       tokenRef.current = token;
 
       if (attempt >= WHEP_ATTEMPTS_BEFORE_FALLBACK && !hlsUnsupported) {
-        return connectHls(token);
+        return connectHls();
       }
       return connectWhep(token);
     }
@@ -189,12 +182,11 @@ export function Player({ server, path, live, className }: PlayerProps) {
 
         const url = `${server.replace(/\/$/, "")}/${path}/whep`;
 
-        // MediaMTX reads WHEP credentials from Basic auth only — ?user=&pass=
-        // in the query string is silently ignored, the auth callback sees
-        // empty credentials, and every viewer gets a 401. Its CORS preflight
-        // allows the Authorization header for exactly this. (HLS below is the
-        // opposite: query credentials, because a native <video> element has
-        // no way to send a header.)
+        // MediaMTX reads credentials from Basic auth only — ?user=&pass= in
+        // the query string never even reaches the auth callback (measured
+        // against 1.19: query credentials 401 with zero callback traffic,
+        // Basic lands). True for WHEP here and for HLS below alike, and its
+        // CORS preflight allows the Authorization header for exactly this.
         const response = await fetch(url, {
           method: "POST",
           headers: {
@@ -213,62 +205,57 @@ export function Player({ server, path, live, className }: PlayerProps) {
       }
     }
 
-    async function connectHls(token: string) {
+    async function connectHls() {
       const src = `${server.replace(/\/$/, "")}/${path}/index.m3u8`;
 
       const { default: Hls } = await import("hls.js");
       if (cancelled) return;
 
-      if (Hls.isSupported()) {
-        setTransport("hls");
-        if (video) video.srcObject = null;
-
-        const hls = new Hls({
-          // Every playlist and segment request gets the *current* token —
-          // the refresh timer below keeps it younger than its 60s TTL, and a
-          // revoked session stops refreshing and is refused mid-stream.
-          xhrSetup: (xhr, url) => {
-            const sep = url.includes("?") ? "&" : "?";
-            xhr.open("GET", `${url}${sep}user=viewer&pass=${tokenRef.current}`, true);
-          },
-        });
-        hlsRef.current = hls;
-
-        hls.on(Hls.Events.ERROR, (_event, data) => {
-          if (!cancelled && data.fatal) fail();
-        });
-
-        hls.loadSource(src);
-        if (video) {
-          hls.attachMedia(video);
-          void video.play().catch(() => {
-            // Autoplay policy already handled: the element starts muted.
-          });
-        }
-
-        refresh = setInterval(() => {
-          void mintToken().then((fresh) => {
-            if (fresh && !cancelled) tokenRef.current = fresh;
-          });
-        }, TOKEN_REFRESH_MS);
-        return;
+      // hls.js or nothing — no native <video src=m3u8> branch, deliberately.
+      // The element can't send an Authorization header and MediaMTX ignores
+      // query credentials, so a native fallback would be dead code wearing a
+      // feature's name. hls.js covers everything current (desktop via MSE,
+      // iOS 17.1+ via ManagedMediaSource); older iOS keeps the honest WHEP
+      // failure screen.
+      if (!Hls.isSupported()) {
+        hlsUnsupported = true;
+        return fail();
       }
 
-      if (video?.canPlayType("application/vnd.apple.mpegurl")) {
-        // Old iOS: no MSE, so the element fetches segments itself and there
-        // is nowhere to stamp a fresh token onto each request. The stream
-        // dies with the token and the error handler reconnects with a new
-        // one — a visible hiccup a minute, which still beats no video.
-        setTransport("hls");
-        nativeHls = true;
-        video.srcObject = null;
-        video.src = `${src}?user=viewer&pass=${token}`;
-        void video.play().catch(() => {});
-        return;
+      setTransport("hls");
+      if (video) video.srcObject = null;
+
+      const hls = new Hls({
+        // Every playlist and segment request gets the *current* token — the
+        // refresh timer below keeps it younger than its 60s TTL, and a
+        // revoked session stops refreshing and is refused mid-stream.
+        xhrSetup: (xhr, url) => {
+          if (xhr.readyState === 0) xhr.open("GET", url, true);
+          xhr.setRequestHeader(
+            "authorization",
+            `Basic ${btoa(`viewer:${tokenRef.current}`)}`,
+          );
+        },
+      });
+      hlsRef.current = hls;
+
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (!cancelled && data.fatal) fail();
+      });
+
+      hls.loadSource(src);
+      if (video) {
+        hls.attachMedia(video);
+        void video.play().catch(() => {
+          // Autoplay policy already handled: the element starts muted.
+        });
       }
 
-      hlsUnsupported = true;
-      fail();
+      refresh = setInterval(() => {
+        void mintToken().then((fresh) => {
+          if (fresh && !cancelled) tokenRef.current = fresh;
+        });
+      }, TOKEN_REFRESH_MS);
     }
 
     function fail() {
@@ -277,7 +264,6 @@ export function Player({ server, path, live, className }: PlayerProps) {
       hlsRef.current?.destroy();
       hlsRef.current = null;
       clearInterval(refresh);
-      nativeHls = false;
       if (cancelled) return;
       setStatus("failed");
 
@@ -295,7 +281,6 @@ export function Player({ server, path, live, className }: PlayerProps) {
       clearTimeout(retry);
       clearInterval(refresh);
       video?.removeEventListener("playing", onPlaying);
-      video?.removeEventListener("error", onVideoError);
       teardown();
     };
   }, [live, server, path]);
