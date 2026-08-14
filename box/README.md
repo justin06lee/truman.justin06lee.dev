@@ -3,11 +3,12 @@
 Everything here runs on the Arch machine with the webcam plugged into it.
 Nothing here runs on Vercel.
 
-> **Untested against real hardware.** The timelapse recipe in `record.sh` was
-> verified against real ffmpeg output at four durations. Everything else —
-> MediaMTX config, the systemd units, the Caddy forward-auth — is written from
-> documentation and has not yet run on an actual box. Expect to fix something
-> on first contact, most likely device names or the router.
+> **Hardened against real hardware.** This kit has met the actual box, and
+> the commit history is the scar tissue: the mic that needed `plughw`, the
+> router that won't hairpin, the ICE candidate that had to be a numeric ip,
+> the power cut. `doctor.sh` exists because each of those looked identical —
+> a black rectangle — until something asked the right question in the right
+> order. When a thing breaks, run the doctor before reasoning from scratch.
 
 ## what runs
 

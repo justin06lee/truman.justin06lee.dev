@@ -30,8 +30,10 @@ function url(): string {
   const turso = process.env.TURSO_DATABASE_URL;
   if (turso) return turso;
 
-  // Vercel's filesystem is read-only outside /tmp, so a file url there would
-  // fail on the first write rather than degrade.
+  // A serverless filesystem is read-only outside /tmp, so a file url in that
+  // kind of production would fail on the first write rather than degrade. The
+  // box runs production too, but with Turso configured this branch never
+  // fires there.
   if (process.env.NODE_ENV === "production") {
     console.warn(
       "[truman] TURSO_DATABASE_URL unset in production — using an in-memory database. " +
