@@ -60,6 +60,12 @@ if systemctl --quiet is-active mediamtx; then
   else
     fail "nothing listening on 8889 — check: journalctl -u mediamtx -n 30"
   fi
+  if curl -s -o /dev/null -m 5 "http://127.0.0.1:8888"; then
+    pass "hls fallback port 8888 answers locally"
+  else
+    fail "nothing listening on 8888 — udp-blocked viewers have no fallback"
+    info "an older mediamtx.yml without 'hls: yes'? re-run sudo ./install.sh"
+  fi
 else
   fail "mediamtx is not running — sudo systemctl enable --now mediamtx"
 fi

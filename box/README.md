@@ -14,7 +14,7 @@ Nothing here runs on Vercel.
 
 | unit | does | enabled at boot |
 |---|---|---|
-| `mediamtx` | RTSP in on 8554, WHEP out on 8889. Auth via callback to truman. | yes |
+| `mediamtx` | RTSP in on 8554, WHEP out on 8889, HLS fallback on 8888. Auth via callback to truman. | yes |
 | `caddy` | TLS, and serves the finished clips behind the same token auth | yes |
 | `truman-agent` | polls the site for the switch, drives the other two, reports back | yes |
 | `truman-camera` | ffmpeg: webcam + mic, published to MediaMTX | **no** |
@@ -111,10 +111,10 @@ inbound connections are impossible, and you need the relay.
 | `80/tcp` | yes | lets Caddy get its certificate over the ACME http challenge |
 | `8189/udp` | yes | the video itself. WebRTC media does not go through Caddy |
 
-**Do not forward 8889.** Caddy is the only thing that should be exposed;
-MediaMTX listens on loopback and is reached through it. Forwarding 8889 would
-publish an unencrypted endpoint beside the encrypted one, and a browser on an
-https page refuses to talk to it anyway.
+**Do not forward 8889 or 8888.** Caddy is the only thing that should be
+exposed; MediaMTX listens on loopback and is reached through it. Forwarding
+either would publish an unencrypted endpoint beside the encrypted one, and a
+browser on an https page refuses to talk to it anyway.
 
 Then point `media.justin06lee.dev` at your public IP with an A record, and add
 that hostname to `webrtcAdditionalHosts` in `mediamtx.yml`. Without that last

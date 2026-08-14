@@ -12,13 +12,19 @@ truman.justin06lee.dev {
 }
 
 media.justin06lee.dev {
-	# WHEP. MediaMTX does its own auth via the callback to truman, so Caddy
-	# passes these straight through.
-	handle /live/* {
+	# MediaMTX does its own auth via the callback to truman, so Caddy passes
+	# both media paths straight through. Caddy sorts handle blocks longest
+	# path first, so the whep matcher wins over the general /live/* one.
+	#
+	# WHEP — the fast path. Signalling only; the video itself rides 8189/udp.
+	handle /live/whep* {
 		reverse_proxy 127.0.0.1:8889
 	}
-	handle /whep* {
-		reverse_proxy 127.0.0.1:8889
+
+	# HLS — the fallback for networks that block UDP. Everything under /live/
+	# that isn't whep is a playlist or a segment.
+	handle /live/* {
+		reverse_proxy 127.0.0.1:8888
 	}
 
 	# The finished timelapses. MediaMTX never sees these — they are plain

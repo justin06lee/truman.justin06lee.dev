@@ -2,25 +2,40 @@
 
 import * as React from "react";
 
+import type HlsType from "hls.js";
+
 /**
- * WHEP client for the MediaMTX box.
+ * WHEP client for the MediaMTX box, with an HLS fallback.
  *
  * Site-local on purpose: the chrome registry stays framework- and
  * backend-agnostic, and this is a transport bound to one media server's
  * endpoint shape. Everything visible around it — the badge, the grain, the
  * empty state — comes from the registry.
  *
- * WebRTC rather than HLS because of chat. At HLS's ten-to-thirty seconds a
+ * WebRTC first because of chat. At HLS's several seconds of latency a
  * message about what just happened arrives before the thing it's about;
  * WHEP lands under a second, which is what makes the room feel like one
- * room. Native HLS is kept as a fallback for networks that block UDP.
+ * room. But WebRTC needs a UDP path, and some networks (hotel wifi,
+ * corporate proxies) simply don't have one — so after two failed WHEP
+ * attempts the player falls back to HLS and *says so* on screen, because a
+ * viewer who is a few seconds behind should know the chat will lead the
+ * picture rather than wonder why the room is confused.
  *
- * The token is fetched per attempt rather than embedded at render: it lives
- * sixty seconds, so a page left open overnight reconnects with a fresh one
- * instead of a dead one.
+ * Tokens live sixty seconds. WHEP needs one per connection attempt; HLS
+ * needs one per *request*, forever — so the HLS path re-mints on a timer and
+ * stamps the current token onto every playlist and segment fetch. That is
+ * also what keeps "everyone out" meaningful on the fallback: a revoked
+ * session stops minting, and the next segment request is refused.
  */
 
 type Status = "idle" | "connecting" | "playing" | "failed";
+type Transport = "whep" | "hls";
+
+/** WHEP failures before conceding the network has no UDP path. */
+const WHEP_ATTEMPTS_BEFORE_FALLBACK = 2;
+
+/** Comfortably inside the 60s token TTL, with room for a slow request. */
+const TOKEN_REFRESH_MS = 40_000;
 
 export type PlayerProps = {
   /** Base url of the media server, e.g. https://media.example.dev */
@@ -45,7 +60,7 @@ async function mintToken(): Promise<string | null> {
  * WHEP is a single request/response, so there is no channel to trickle later
  * candidates over — the offer has to be complete when it's posted. The
  * timeout exists because a candidate that never resolves would otherwise hang
- * the connection forever rather than failing over to HLS.
+ * the connection forever rather than failing over.
  */
 function gathered(pc: RTCPeerConnection, timeoutMs = 3000): Promise<void> {
   if (pc.iceGatheringState === "complete") return Promise.resolve();
@@ -67,7 +82,10 @@ function gathered(pc: RTCPeerConnection, timeoutMs = 3000): Promise<void> {
 export function Player({ server, path, live, className }: PlayerProps) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const pcRef = React.useRef<RTCPeerConnection | null>(null);
+  const hlsRef = React.useRef<HlsType | null>(null);
+  const tokenRef = React.useRef<string>("");
   const [status, setStatus] = React.useState<Status>("idle");
+  const [transport, setTransport] = React.useState<Transport>("whep");
   const [muted, setMuted] = React.useState(true);
 
   /**
@@ -80,15 +98,44 @@ export function Player({ server, path, live, className }: PlayerProps) {
     !live || !server ? "idle" : status === "idle" ? "connecting" : status;
 
   React.useEffect(() => {
-    if (!live || !server) {
+    const video = videoRef.current;
+
+    function teardown() {
       pcRef.current?.close();
       pcRef.current = null;
+      hlsRef.current?.destroy();
+      hlsRef.current = null;
+    }
+
+    if (!live || !server) {
+      teardown();
       return;
     }
 
     let cancelled = false;
     let retry: ReturnType<typeof setTimeout> | undefined;
+    let refresh: ReturnType<typeof setInterval> | undefined;
     let attempt = 0;
+    // Set once the dynamic import proves this browser has neither MSE nor
+    // native HLS — from then on the retry loop stays on WHEP rather than
+    // failing into the same wall on every backoff.
+    let hlsUnsupported = false;
+    let nativeHls = false;
+
+    // Both transports funnel through the media element eventually, so
+    // "playing" is read off the element rather than trusted from either.
+    const onPlaying = () => {
+      if (cancelled) return;
+      attempt = 0;
+      setStatus("playing");
+    };
+    // Only the native-HLS path treats an element error as transport failure;
+    // WHEP hears about its failures from the peer connection instead.
+    const onVideoError = () => {
+      if (!cancelled && nativeHls) fail();
+    };
+    video?.addEventListener("playing", onPlaying);
+    video?.addEventListener("error", onVideoError);
 
     async function connect() {
       if (cancelled) return;
@@ -96,6 +143,16 @@ export function Player({ server, path, live, className }: PlayerProps) {
       const token = await mintToken();
       if (cancelled) return;
       if (!token) return fail();
+      tokenRef.current = token;
+
+      if (attempt >= WHEP_ATTEMPTS_BEFORE_FALLBACK && !hlsUnsupported) {
+        return connectHls(token);
+      }
+      return connectWhep(token);
+    }
+
+    async function connectWhep(token: string) {
+      setTransport("whep");
 
       const pc = new RTCPeerConnection({
         iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
@@ -106,7 +163,12 @@ export function Player({ server, path, live, className }: PlayerProps) {
       pc.addTransceiver("audio", { direction: "recvonly" });
 
       pc.ontrack = (event) => {
-        if (videoRef.current) videoRef.current.srcObject = event.streams[0];
+        if (video) {
+          // removeAttribute, not src = "": assigning the empty string points
+          // the element at the page url and can fire a spurious error event.
+          video.removeAttribute("src");
+          video.srcObject = event.streams[0];
+        }
       };
 
       pc.onconnectionstatechange = () => {
@@ -130,7 +192,9 @@ export function Player({ server, path, live, className }: PlayerProps) {
         // MediaMTX reads WHEP credentials from Basic auth only — ?user=&pass=
         // in the query string is silently ignored, the auth callback sees
         // empty credentials, and every viewer gets a 401. Its CORS preflight
-        // allows the Authorization header for exactly this.
+        // allows the Authorization header for exactly this. (HLS below is the
+        // opposite: query credentials, because a native <video> element has
+        // no way to send a header.)
         const response = await fetch(url, {
           method: "POST",
           headers: {
@@ -149,9 +213,71 @@ export function Player({ server, path, live, className }: PlayerProps) {
       }
     }
 
+    async function connectHls(token: string) {
+      const src = `${server.replace(/\/$/, "")}/${path}/index.m3u8`;
+
+      const { default: Hls } = await import("hls.js");
+      if (cancelled) return;
+
+      if (Hls.isSupported()) {
+        setTransport("hls");
+        if (video) video.srcObject = null;
+
+        const hls = new Hls({
+          // Every playlist and segment request gets the *current* token —
+          // the refresh timer below keeps it younger than its 60s TTL, and a
+          // revoked session stops refreshing and is refused mid-stream.
+          xhrSetup: (xhr, url) => {
+            const sep = url.includes("?") ? "&" : "?";
+            xhr.open("GET", `${url}${sep}user=viewer&pass=${tokenRef.current}`, true);
+          },
+        });
+        hlsRef.current = hls;
+
+        hls.on(Hls.Events.ERROR, (_event, data) => {
+          if (!cancelled && data.fatal) fail();
+        });
+
+        hls.loadSource(src);
+        if (video) {
+          hls.attachMedia(video);
+          void video.play().catch(() => {
+            // Autoplay policy already handled: the element starts muted.
+          });
+        }
+
+        refresh = setInterval(() => {
+          void mintToken().then((fresh) => {
+            if (fresh && !cancelled) tokenRef.current = fresh;
+          });
+        }, TOKEN_REFRESH_MS);
+        return;
+      }
+
+      if (video?.canPlayType("application/vnd.apple.mpegurl")) {
+        // Old iOS: no MSE, so the element fetches segments itself and there
+        // is nowhere to stamp a fresh token onto each request. The stream
+        // dies with the token and the error handler reconnects with a new
+        // one — a visible hiccup a minute, which still beats no video.
+        setTransport("hls");
+        nativeHls = true;
+        video.srcObject = null;
+        video.src = `${src}?user=viewer&pass=${token}`;
+        void video.play().catch(() => {});
+        return;
+      }
+
+      hlsUnsupported = true;
+      fail();
+    }
+
     function fail() {
       pcRef.current?.close();
       pcRef.current = null;
+      hlsRef.current?.destroy();
+      hlsRef.current = null;
+      clearInterval(refresh);
+      nativeHls = false;
       if (cancelled) return;
       setStatus("failed");
 
@@ -167,8 +293,10 @@ export function Player({ server, path, live, className }: PlayerProps) {
     return () => {
       cancelled = true;
       clearTimeout(retry);
-      pcRef.current?.close();
-      pcRef.current = null;
+      clearInterval(refresh);
+      video?.removeEventListener("playing", onPlaying);
+      video?.removeEventListener("error", onVideoError);
+      teardown();
     };
   }, [live, server, path]);
 
@@ -213,6 +341,15 @@ export function Player({ server, path, live, className }: PlayerProps) {
             </div>
           )}
         </div>
+      )}
+
+      {/* The fallback is honest about its cost: chat will lead the picture
+          by a few seconds, and the room only feels broken if nobody says
+          why. */}
+      {shown === "playing" && transport === "hls" && (
+        <span className="absolute bottom-3 right-3 border border-white/15 bg-black/80 px-2 py-1 font-mono text-[11px] uppercase tracking-[0.18em] text-white/50">
+          a few seconds behind
+        </span>
       )}
 
       {/* Autoplay with sound is blocked until the page has been interacted

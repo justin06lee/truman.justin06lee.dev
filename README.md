@@ -18,7 +18,7 @@ Arch box, behind one Caddy:
 | part | where | what |
 |---|---|---|
 | the camera | Arch box | a USB webcam, ffmpeg, and a systemd unit |
-| the media server | Arch box | MediaMTX: RTSP in, WHEP out |
+| the media server | Arch box | MediaMTX: RTSP in, WHEP out, HLS when UDP is blocked |
 | the site | Arch box | next start behind Caddy — auth, chat, presence, episodes, the on-air switch |
 
 The parts stay separable on purpose — the site still speaks to the box only
