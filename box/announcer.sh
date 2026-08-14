@@ -36,9 +36,12 @@ PIPER=$(command -v piper || command -v piper-tts) \
 RATE=$(jq -r '.audio.sample_rate // 16000' "${VOICE}.json" 2>/dev/null || echo 16000)
 
 # Can this device actually play, right now, from this process? A tenth of a
-# second of silence answers without anyone hearing the test.
+# second of silence answers without anyone hearing the test. Under timeout
+# for the same reason camera.sh probes mics under timeout: as root, `default`
+# routes into a per-user PipeWire and *blocks* rather than failing — measured
+# on this box, where the un-timed probe hung the announcer at startup.
 playable() {
-  head -c 3200 /dev/zero | aplay -q -t raw -f S16_LE -r 16000 -c 1 -D "$1" 2>/dev/null
+  head -c 3200 /dev/zero | timeout 5 aplay -q -t raw -f S16_LE -r 16000 -c 1 -D "$1" 2>/dev/null
 }
 
 # The mirror image of camera.sh's mic hunt, with the priority reversed:
@@ -75,9 +78,11 @@ echo "speaking through $SPK, voice $(basename "$VOICE"), ${RATE}Hz"
 
 speak() {
   # Serial on purpose — one voice in the room, sentences in arrival order.
+  # The timeout outlasts any 500-char message read aloud; it exists so a
+  # device that starts blocking mid-life can't wedge the loop silently.
   printf '%s' "$1" \
     | "$PIPER" --model "$VOICE" --output-raw 2>/dev/null \
-    | aplay -q -t raw -f S16_LE -r "$RATE" -c 1 -D "$SPK" 2>/dev/null
+    | timeout 60 aplay -q -t raw -f S16_LE -r "$RATE" -c 1 -D "$SPK" 2>/dev/null
 }
 
 SINCE=0
