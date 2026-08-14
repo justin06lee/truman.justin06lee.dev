@@ -26,7 +26,10 @@ INTERVAL="${TRUMAN_ANNOUNCE_POLL_SECONDS:-2}"
 # fifty is a backlog nobody wants performed.
 MAX_BATCH=5
 
-command -v piper >/dev/null || { echo "piper is missing — yay -S piper-tts-bin"; exit 1; }
+# The AUR's piper-tts-bin installs the binary as `piper-tts`; upstream calls
+# it `piper`. Answer to either.
+PIPER=$(command -v piper || command -v piper-tts) \
+  || { echo "piper is missing — yay -S piper-tts-bin"; exit 1; }
 [[ -r "$VOICE" ]] || { echo "no voice model at $VOICE — re-run sudo ./install.sh"; exit 1; }
 
 # The rate the voice was trained at, from its own config (danny low: 16000).
@@ -73,7 +76,7 @@ echo "speaking through $SPK, voice $(basename "$VOICE"), ${RATE}Hz"
 speak() {
   # Serial on purpose — one voice in the room, sentences in arrival order.
   printf '%s' "$1" \
-    | piper --model "$VOICE" --output-raw 2>/dev/null \
+    | "$PIPER" --model "$VOICE" --output-raw 2>/dev/null \
     | aplay -q -t raw -f S16_LE -r "$RATE" -c 1 -D "$SPK" 2>/dev/null
 }
 

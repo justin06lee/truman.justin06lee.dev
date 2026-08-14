@@ -52,7 +52,8 @@ install -Dm644 Caddyfile /etc/caddy/Caddyfile
 echo "==> the announcer's voice"
 # piper is AUR-only, like mediamtx — but unlike mediamtx the announcer is a
 # garnish, so its absence warns instead of stopping the install.
-if command -v piper >/dev/null; then
+# The AUR package installs the binary as piper-tts; upstream calls it piper.
+if command -v piper >/dev/null || command -v piper-tts >/dev/null; then
   VOICES=/opt/truman/voices
   VOICE_BASE="https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/danny/low"
   if [[ ! -s "$VOICES/en_US-danny-low.onnx" ]]; then
@@ -96,7 +97,9 @@ echo "==> boot"
 # regardless of what the switch says.
 systemctl enable mediamtx caddy truman-agent truman-site dnsmasq truman-backup.timer truman-ipwatch.timer
 # The announcer only when it has a voice to speak with.
-command -v piper >/dev/null && systemctl enable truman-announcer
+if command -v piper >/dev/null || command -v piper-tts >/dev/null; then
+  systemctl enable truman-announcer
+fi
 
 echo
 echo "done. next:"
