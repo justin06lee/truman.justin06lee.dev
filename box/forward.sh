@@ -58,7 +58,7 @@ never again.
    and pin this box to $LOCAL, so it can't move and quietly break
    all three rules.
 
-Do NOT forward 8889. Caddy is the only thing that should be exposed.
+Do NOT forward 8889 or 8888. Caddy is the only thing that should be exposed.
 ────────────────────────────────────────────────────────────────────
 EOF
 }

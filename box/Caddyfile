@@ -12,19 +12,31 @@ truman.justin06lee.dev {
 }
 
 media.justin06lee.dev {
-	# WHEP. MediaMTX does its own auth via the callback to truman, so Caddy
-	# passes these straight through.
-	handle /live/* {
+	# MediaMTX does its own auth via the callback to truman, so Caddy passes
+	# both media paths straight through. Caddy sorts handle blocks longest
+	# path first, so the whep matcher wins over the general /live/* one.
+	#
+	# WHEP — the fast path. Signalling only; the video itself rides 8189/udp.
+	handle /live/whep* {
 		reverse_proxy 127.0.0.1:8889
 	}
-	handle /whep* {
-		reverse_proxy 127.0.0.1:8889
+
+	# HLS — the fallback for networks that block UDP. Everything under /live/
+	# that isn't whep is a playlist or a segment.
+	handle /live/* {
+		reverse_proxy 127.0.0.1:8888
 	}
 
 	# The finished timelapses. MediaMTX never sees these — they are plain
 	# files — so Caddy asks truman whether the token is good before serving
 	# one. Without this the archive would be an open directory sitting behind
 	# a gated live stream.
+	#
+	# The token rides the query string (a native <video> element has no way
+	# to send a header), which means turning on Caddy's access log would
+	# write live tokens into it. They die in sixty seconds and are useless
+	# without a still-existing session, so this is a thing to know rather
+	# than a hole — but if you ever enable logging here, know it.
 	handle /clips/* {
 		forward_auth https://truman.justin06lee.dev {
 			uri /api/media/clip-auth?token={http.request.uri.query.token}

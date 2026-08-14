@@ -1,0 +1,11 @@
+[Unit]
+Description=truman — check the public ip every five minutes
+
+[Timer]
+# Soon after boot (the ip often moves exactly when the power was out), then
+# steadily. Five minutes bounds the outage; the check itself is two requests.
+OnBootSec=90s
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target

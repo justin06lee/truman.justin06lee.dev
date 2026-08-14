@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { Button } from "@/components/chrome/button";
+import { useDialog } from "@/components/chrome/dialog";
 import { LiveBadge } from "@/components/chrome/live-badge";
 import { Switch } from "@/components/chrome/switch";
 import { useToast } from "@/hooks/use-toast";
@@ -40,6 +41,7 @@ export function StudioClient({
   const [watching, setWatching] = React.useState(initialWatching);
   const [busy, setBusy] = React.useState(false);
   const { toast } = useToast();
+  const { confirm } = useDialog();
 
   React.useEffect(() => {
     let cancelled = false;
@@ -81,6 +83,33 @@ export function StudioClient({
       if (!response.ok) throw new Error();
     } catch {
       setDesired(!next);
+      toast({ title: "that didn't take", variant: "danger" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function wipeChat() {
+    const sure = await confirm({
+      title: "wipe the chat log?",
+      message: "every message goes, for everyone, immediately. there is no undo.",
+      confirmText: "wipe it",
+      cancelText: "keep it",
+      danger: true,
+    });
+    if (!sure) return;
+
+    setBusy(true);
+    try {
+      const response = await fetch("/api/chat", { method: "DELETE" });
+      if (!response.ok) throw new Error();
+      const data = (await response.json()) as { cleared: number };
+      toast({
+        title: data.cleared
+          ? `${data.cleared} message${data.cleared === 1 ? "" : "s"} gone`
+          : "the log was already empty",
+      });
+    } catch {
       toast({ title: "that didn't take", variant: "danger" });
     } finally {
       setBusy(false);
@@ -164,6 +193,18 @@ export function StudioClient({
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="bg-black p-5">
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-white/40">
+          the log
+        </h2>
+        <p className="mt-2 max-w-prose text-[13px] leading-6 text-white/55">
+          chat is a room, not a record. this empties it for everyone at once.
+        </p>
+        <Button className="mt-4" variant="outline" disabled={busy} onClick={wipeChat}>
+          wipe the chat log
+        </Button>
       </section>
 
       <section className="bg-black p-5">

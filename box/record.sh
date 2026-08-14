@@ -100,6 +100,18 @@ finish() {
   frames="$(ffprobe -v error -select_streams v:0 -count_frames \
               -show_entries stream=nb_read_frames -of csv=p=0 "$file" 2>/dev/null || echo "")"
 
+  # A poster for the shelf: one frame from the middle of the clip, which is
+  # far more likely to catch the room lived-in than the first frame's empty
+  # chair. Same name, .jpg for .mp4 — the site derives the url by convention
+  # and simply shows nothing for episodes recorded before posters existed.
+  # Best-effort on purpose: an episode without a poster is an episode.
+  clip_len="$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$file" 2>/dev/null || echo "")"
+  if [[ -n "$clip_len" ]]; then
+    ffmpeg -nostdin -loglevel error -y \
+      -ss "$(awk "BEGIN{print $clip_len/2}")" -i "$file" \
+      -frames:v 1 -q:v 4 "$CLIPS/$id.jpg" 2>/dev/null || true
+  fi
+
   curl -fsS --retry 3 --retry-delay 2 -X POST "$TRUMAN_SITE/api/episodes/record" \
     -H "Authorization: Bearer $TRUMAN_BOX_KEY" \
     -H 'content-type: application/json' \

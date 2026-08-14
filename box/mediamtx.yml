@@ -72,10 +72,18 @@ webrtcIPsFromInterfaces: yes
 webrtcAdditionalHosts:
   - 107.214.144.123
 
-# HLS is off. It is the fallback for networks that block UDP, and it costs
-# ten-plus seconds of latency — turn it on deliberately if you need it, not by
-# default, or chat quietly stops matching the picture.
-hls: no
+# HLS, loopback only, reached through Caddy like everything else. This is
+# the deliberate fallback for networks that block UDP: the player tries WHEP
+# twice and only then falls back here, and it says "a few seconds behind" on
+# screen while it's doing it — the latency is real and chat would otherwise
+# quietly stop matching the picture. Do not forward 8888; like 8889 it is
+# Caddy's to expose.
+#
+# Auth rides the same callback as everything else: the HLS server presents
+# the viewer's ?user=&pass= query credentials to /api/media/auth on each
+# request, so "everyone out" cuts this path within seconds too.
+hls: yes
+hlsAddress: 127.0.0.1:8888
 srt: no
 
 ###############################################################################

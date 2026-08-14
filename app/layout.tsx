@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist_Mono } from "next/font/google";
 
+import { DialogProvider } from "@/components/chrome/dialog";
 import { ToastProvider } from "@/components/chrome/toast";
 import "./globals.css";
 
@@ -21,7 +22,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${geistMono.variable} dark h-full antialiased`}>
       <body className="min-h-full bg-black text-white flex flex-col">
-        <ToastProvider>{children}</ToastProvider>
+        <ToastProvider>
+          <DialogProvider>{children}</DialogProvider>
+        </ToastProvider>
       </body>
     </html>
   );

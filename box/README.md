@@ -3,22 +3,26 @@
 Everything here runs on the Arch machine with the webcam plugged into it.
 Nothing here runs on Vercel.
 
-> **Untested against real hardware.** The timelapse recipe in `record.sh` was
-> verified against real ffmpeg output at four durations. Everything else —
-> MediaMTX config, the systemd units, the Caddy forward-auth — is written from
-> documentation and has not yet run on an actual box. Expect to fix something
-> on first contact, most likely device names or the router.
+> **Hardened against real hardware.** This kit has met the actual box, and
+> the commit history is the scar tissue: the mic that needed `plughw`, the
+> router that won't hairpin, the ICE candidate that had to be a numeric ip,
+> the power cut. `doctor.sh` exists because each of those looked identical —
+> a black rectangle — until something asked the right question in the right
+> order. When a thing breaks, run the doctor before reasoning from scratch.
 
 ## what runs
 
 | unit | does | enabled at boot |
 |---|---|---|
-| `mediamtx` | RTSP in on 8554, WHEP out on 8889. Auth via callback to truman. | yes |
+| `mediamtx` | RTSP in on 8554, WHEP out on 8889, HLS fallback on 8888. Auth via callback to truman. | yes |
 | `caddy` | TLS, and serves the finished clips behind the same token auth | yes |
 | `truman-agent` | polls the site for the switch, drives the other two, reports back | yes |
 | `truman-camera` | ffmpeg: webcam + mic, published to MediaMTX | **no** |
 | `truman-record` | ffmpeg: the 400x timelapse | **no** |
 | `truman-site` | next.js — the website itself, behind caddy | yes |
+| `truman-backup.timer` | daily rsync of the clips to `TRUMAN_BACKUP_DEST` — the clips are the only copy that ever existed | yes |
+| `truman-ipwatch.timer` | every 5 min: repair the ICE candidate and the A records when the isp moves the ip | yes |
+| `truman-announcer` | speaks each new chat message into the room — piper's danny voice, through the box's speakers | yes, if piper is installed |
 
 The camera and recorder are started by the agent, never by systemd at boot.
 That's the whole point — the switch lives on the website.
@@ -50,28 +54,19 @@ value of `TRUMAN_BOX_KEY` from the site's environment.
 
 ## install
 
-MediaMTX is **not in the official repos**; it's in the AUR, and `mediamtx-bin`
-ships its own systemd unit.
+One command, run from this directory, re-runnable after any edit here:
 
 ```bash
-sudo pacman -S ffmpeg caddy curl v4l-utils
-yay -S mediamtx-bin        # or: git clone https://aur.archlinux.org/mediamtx-bin.git && makepkg -si
-
-sudo install -Dm755 camera.sh agent.sh record.sh -t /opt/truman/
-sudo install -Dm644 mediamtx.yml /etc/mediamtx/mediamtx.yml
-sudo install -Dm644 truman-camera.service truman-record.service truman-agent.service \
-                    -t /etc/systemd/system/
-sudo install -Dm644 truman.tmpfiles.conf /etc/tmpfiles.d/truman.conf
-sudo install -Dm644 Caddyfile /etc/caddy/Caddyfile
-
-sudo install -Dm600 box.env.example /etc/truman/box.env
-sudo systemd-tmpfiles --create
-sudo mkdir -p /var/lib/truman/clips
+sudo ./install.sh
 ```
 
-Check where the AUR package put its config — if it reads
-`/etc/mediamtx.yml` rather than `/etc/mediamtx/mediamtx.yml`, put it there
-instead (`systemctl cat mediamtx` shows the `ExecStart` path).
+It installs the packages, copies every script, unit and config to where it
+belongs, and prints the next steps. The only thing it can't do is MediaMTX
+itself — that is **not in the official repos**, it's in the AUR, and the
+script stops and says so until you've run `yay -S mediamtx-bin`. It also
+follows wherever the AUR package actually reads its config from
+(`systemctl cat mediamtx` shows the path), because the package disagrees
+with itself across versions.
 
 Then fill in the environment:
 
@@ -82,7 +77,7 @@ sudo systemctl enable --now mediamtx caddy truman-agent
 ```
 
 `/etc/truman/box.env` stays `0600` root-only. Every unit that needs it reads
-it through `EnvironmentFile=`, and all three run as root — nothing else on the
+it through `EnvironmentFile=`, and they run as root — nothing else on the
 box ever needs to read that key.
 
 ## find your devices first
@@ -119,10 +114,10 @@ inbound connections are impossible, and you need the relay.
 | `80/tcp` | yes | lets Caddy get its certificate over the ACME http challenge |
 | `8189/udp` | yes | the video itself. WebRTC media does not go through Caddy |
 
-**Do not forward 8889.** Caddy is the only thing that should be exposed;
-MediaMTX listens on loopback and is reached through it. Forwarding 8889 would
-publish an unencrypted endpoint beside the encrypted one, and a browser on an
-https page refuses to talk to it anyway.
+**Do not forward 8889 or 8888.** Caddy is the only thing that should be
+exposed; MediaMTX listens on loopback and is reached through it. Forwarding
+either would publish an unencrypted endpoint beside the encrypted one, and a
+browser on an https page refuses to talk to it anyway.
 
 Then point `media.justin06lee.dev` at your public IP with an A record, and add
 that hostname to `webrtcAdditionalHosts` in `mediamtx.yml`. Without that last
@@ -133,8 +128,11 @@ If DNS is on Cloudflare the record must be **DNS only** (grey cloud, not
 orange). The proxy does not carry WebRTC's UDP, so an orange cloud breaks the
 video while making everything else look correct.
 
-Residential IPs move. When the public one changes, the A record needs
-changing with it — dynamic DNS, or notice the day it breaks.
+Residential IPs move, and when this one does, two things go stale at once:
+the A records and the numeric ICE candidate in `mediamtx.yml`.
+`truman-ipwatch.timer` repairs both every five minutes — the candidate
+unconditionally, the DNS when `CLOUDFLARE_API_TOKEN` is set in `box.env`
+(otherwise it names the record to fix by hand in the journal).
 
 The box's *private* address matters too, because the forwards point at it.
 AT&T's gateway has no straightforward per-device DHCP reservation — what it

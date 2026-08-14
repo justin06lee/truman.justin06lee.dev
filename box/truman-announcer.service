@@ -1,0 +1,14 @@
+[Unit]
+Description=truman — speak new chat messages into the room
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+EnvironmentFile=/etc/truman/box.env
+ExecStart=/opt/truman/announcer.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

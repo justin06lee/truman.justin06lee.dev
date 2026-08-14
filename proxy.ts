@@ -30,6 +30,9 @@ const BOX = [
   "/api/episodes/record",
   "/api/media/auth",
   "/api/media/clip-auth",
+  // The announcer polls the log to speak it into the room. The route checks
+  // the bearer key (or a session cookie) itself, like every route here.
+  "/api/chat",
 ];
 
 export function proxy(request: NextRequest) {

@@ -9,17 +9,22 @@ sign-up, and nothing for a crawler to find.
 ## the three moving parts
 
 Every other justin06lee.dev site is a Next app on Vercel talking to Turso.
-This one can't be, because video breaks that shape — Vercel can neither carry
-a live stream nor hold a socket open. So it is three things:
+This one started that way and couldn't stay — video breaks that shape (Vercel
+can neither carry a live stream nor hold a socket open), and a page whose
+whole point is a poll loop is the worst possible serverless tenant: every
+chat poll was a billed function call. So all three parts now live on the same
+Arch box, behind one Caddy:
 
 | part | where | what |
 |---|---|---|
 | the camera | Arch box | a USB webcam, ffmpeg, and a systemd unit |
-| the media server | Arch box | MediaMTX: RTSP in, WHEP out |
-| the site | Vercel | auth, chat, presence, episodes, the on-air switch |
+| the media server | Arch box | MediaMTX: RTSP in, WHEP out, HLS when UDP is blocked |
+| the site | Arch box | next start behind Caddy — auth, chat, presence, episodes, the on-air switch |
 
-The site is the smallest of the three. Everything in `box/` is config that
-gets copied to the machine with the camera on it; everything else is the app.
+The parts stay separable on purpose — the site still speaks to the box only
+through the public API, so it could move back off the box tomorrow without
+the box noticing. Everything in `box/` is config that gets copied to the
+machine with the camera on it; everything else is the app.
 
 ## the switch runs backwards on purpose
 

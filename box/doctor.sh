@@ -60,6 +60,12 @@ if systemctl --quiet is-active mediamtx; then
   else
     fail "nothing listening on 8889 — check: journalctl -u mediamtx -n 30"
   fi
+  if curl -s -o /dev/null -m 5 "http://127.0.0.1:8888"; then
+    pass "hls fallback port 8888 answers locally"
+  else
+    fail "nothing listening on 8888 — udp-blocked viewers have no fallback"
+    info "an older mediamtx.yml without 'hls: yes'? re-run sudo ./install.sh"
+  fi
 else
   fail "mediamtx is not running — sudo systemctl enable --now mediamtx"
 fi
@@ -113,6 +119,15 @@ else
   else
     info "nothing publishing — normal while the switch is off"
   fi
+fi
+
+# -------------------------------------------------------------- the announcer
+if systemctl --quiet is-active truman-announcer; then
+  pass "the announcer is running — chat gets spoken into the room"
+elif command -v piper >/dev/null; then
+  info "announcer not running — sudo systemctl enable --now truman-announcer"
+else
+  info "piper not installed — chat stays silent in the room (yay -S piper-tts-bin)"
 fi
 
 # ------------------------------------------------------------------ the site
@@ -189,9 +204,10 @@ if [[ -n "$MEDIA_HOST" ]]; then
       pass "mediamtx advertises the current public ip ($PUBLIC) as an ice candidate"
     else
       fail "webrtcAdditionalHosts does not carry the current public ip ($PUBLIC)"
-      info "the isp moved it, or it was never set. put the ip in"
-      info "  ${MTX_CONF:-/etc/mediamtx/mediamtx.yml} under webrtcAdditionalHosts, then:"
-      info "  sudo systemctl restart mediamtx"
+      info "the isp moved it, or it was never set. truman-ipwatch.timer repairs"
+      info "  this within five minutes on its own — if it keeps failing, check:"
+      info "  journalctl -u truman-ipwatch -n 20   (or fix by hand: put the ip in"
+      info "  ${MTX_CONF:-/etc/mediamtx/mediamtx.yml} and restart mediamtx)"
     fi
   fi
 fi
