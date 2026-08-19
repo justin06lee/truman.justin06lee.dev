@@ -38,9 +38,14 @@ The router will not hairpin, so lan devices asking public dns for either name
 would reach nothing. The box therefore runs `dnsmasq` as the house resolver:
 both names answer with the box's lan address, everything else forwards to
 1.1.1.1. Point the gateway's DHCP at this box (primary dns `192.168.1.253`,
-secondary a public resolver) and every device on the wifi just works. The
-box's own calls to its public names ride the gateway's one working hairpin
-path and need no pinning.
+secondary a public resolver) and every device on the wifi just works.
+
+The box's *own* lookups ride its own dnsmasq too (`resolved-dnsmasq.conf`,
+installed as a systemd-resolved drop-in). They used to go through the
+gateway over wifi, and every wifi roam surfaced as a burst of EAI_AGAIN
+failures that took the site's Turso calls down with it — the site looked
+broken for exactly as long as the wifi blinked. A direct upstream rides
+second in the list so a dead dnsmasq can't take the box's dns with it.
 
 They start and stop **together**, which is what makes an episode match one
 sitting. Driving the recorder from MediaMTX's `runOnReady` instead would end

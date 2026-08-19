@@ -70,6 +70,12 @@ fi
 echo "==> dnsmasq"
 install -Dm644 dnsmasq.conf /etc/dnsmasq.conf
 install -Dm644 dns-hosts /etc/truman/dns-hosts
+# The box's own lookups ride its own dnsmasq too — resolving through the
+# gateway over wifi turned every roam into an EAI_AGAIN burst against the
+# site's database. Restarting resolved here is reconfiguration, not a
+# service start; it is always running anyway.
+install -Dm644 resolved-dnsmasq.conf /etc/systemd/resolved.conf.d/truman-dnsmasq.conf
+systemctl try-restart systemd-resolved
 
 echo "==> directories"
 # The site deletes episodes now, and unlink needs write on the *directory*,
