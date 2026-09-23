@@ -12,7 +12,13 @@ Environment=NODE_ENV=production
 # business, and this survives it moving. (next itself still runs on node —
 # bun only resolves the script.) Secrets come from .env.local in the working
 # directory, 0600, which next loads on its own.
-ExecStart=/usr/bin/bun run start
+#
+# Loopback, and not 3000. Caddy is the only door, so nothing else needs to
+# reach this. And 3000 is every dev tool's default: an MCP server's OAuth
+# callback took it at boot once, the site crash-looped on EADDRINUSE, and
+# caddy spent the evening proxying the public name to that callback instead.
+# The port must match the Caddyfile and doctor.sh.
+ExecStart=/usr/bin/bun run start -H 127.0.0.1 -p 3700
 Restart=always
 RestartSec=3
 

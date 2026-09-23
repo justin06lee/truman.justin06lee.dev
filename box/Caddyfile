@@ -7,8 +7,10 @@
 # The site itself, next to the media it fronts. Serverless billed every chat
 # poll; this box doesn't. The box's own services reach this name through a
 # loopback pin in /etc/hosts, because the router will not hairpin.
+#
+# 3700, not next's default 3000 — see truman-site.service for why.
 truman.justin06lee.dev {
-	reverse_proxy 127.0.0.1:3000
+	reverse_proxy 127.0.0.1:3700
 }
 
 media.justin06lee.dev {
