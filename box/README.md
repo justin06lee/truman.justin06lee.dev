@@ -31,7 +31,15 @@ The site itself moved here from Vercel, where every chat poll was a billed
 function call — a page whose whole point is a poll loop is the worst possible
 serverless tenant. It runs as `truman-site` (`next start` behind the same
 Caddy), with secrets in `.env.local` at the repo root, `0600`. Deploy with
-`./site-update.sh` after master moves. Its DNS is an A record to the public
+`./site-update.sh` after master moves.
+
+It listens on `127.0.0.1:3700` — loopback, because Caddy is the only door, and
+deliberately not next's default 3000. This box runs other things, and 3000 is
+every dev tool's first choice: once, an MCP server's OAuth callback bound it at
+boot before the site did, the site crash-looped on `EADDRINUSE`, and Caddy
+spent the evening proxying the public name to the callback's 404. The port
+lives in three places — the unit, the Caddyfile, and `doctor.sh` — and they
+move together. Its DNS is an A record to the public
 IP, grey cloud, exactly like the media host.
 
 The router will not hairpin, so lan devices asking public dns for either name

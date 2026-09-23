@@ -46,10 +46,11 @@ CODE=$(curl -s -o /dev/null -w '%{http_code}' -m 10 \
 case "$CODE" in
   200) pass "the site accepts this box's key" ;;
   401) fail "the site rejected the key (401)"
-       info "TRUMAN_BOX_KEY here must byte-match the one in the Vercel env" ;;
+       info "TRUMAN_BOX_KEY here must byte-match the one in the site's .env.local" ;;
   000) fail "could not reach $TRUMAN_SITE at all"
        info "check the url, and that this box has internet" ;;
-  *)   fail "unexpected response from the site: HTTP $CODE" ;;
+  *)   fail "unexpected response from the site: HTTP $CODE"
+       info "caddy answered, but not with the site — see the truman-site check below" ;;
 esac
 
 # -------------------------------------------------------------------- mediamtx
@@ -131,18 +132,35 @@ else
 fi
 
 # ------------------------------------------------------------------ the site
+# Must match truman-site.service and the Caddyfile.
+SITE_PORT=3700
+# Whoever is listening on the site's port, when it isn't the site. Caddy
+# proxies the public name to that port regardless, so the failure is a stranger
+# answering with its own 404 — not a 502 that would point here on its own.
+port_holder() {
+  ss -ltnpH "sport = :$SITE_PORT" 2>/dev/null \
+    | grep -oE 'users:\(\("[^"]+",pid=[0-9]+' | head -1 \
+    | sed -E 's/users:\(\("([^"]+)",pid=([0-9]+)/\1 (pid \2)/'
+}
 if systemctl --quiet is-active truman-site; then
   pass "truman-site is running"
-  SITECODE=$(curl -s -o /dev/null -w '%{http_code}' -m 5 http://127.0.0.1:3000/ 2>/dev/null)
+  SITECODE=$(curl -s -o /dev/null -w '%{http_code}' -m 5 "http://127.0.0.1:$SITE_PORT/" 2>/dev/null)
   if [[ "$SITECODE" != "000" ]]; then
-    pass "the site answers on :3000 (HTTP $SITECODE)"
+    pass "the site answers on :$SITE_PORT (HTTP $SITECODE)"
   else
-    fail "truman-site is up but :3000 answers nothing"
+    fail "truman-site is up but :$SITE_PORT answers nothing"
     info "check: journalctl -u truman-site -n 30 --no-pager"
   fi
+elif systemctl --quiet is-enabled truman-site 2>/dev/null; then
+  fail "truman-site is enabled but not running ($(systemctl show -p ActiveState --value truman-site))"
+  HOLDER=$(port_holder)
+  if [[ -n "$HOLDER" ]]; then
+    info ":$SITE_PORT is held by $HOLDER — the site can't bind it, and caddy"
+    info "  is sending the public name there instead. move that, not the site."
+  fi
+  info "check: journalctl -u truman-site -n 30 --no-pager"
 else
-  info "truman-site is not running — the site lives on vercel, or run:"
-  info "  sudo systemctl enable --now truman-site"
+  info "truman-site is not enabled — sudo systemctl enable --now truman-site"
 fi
 
 # ------------------------------------------------------------------- outward
