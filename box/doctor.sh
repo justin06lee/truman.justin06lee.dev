@@ -137,8 +137,12 @@ SITE_PORT=3700
 # Whoever is listening on the site's port, when it isn't the site. Caddy
 # proxies the public name to that port regardless, so the failure is a stranger
 # answering with its own 404 — not a 502 that would point here on its own.
+# Only listeners that clash with the site's loopback bind count: makima
+# mirrors every loopback port onto its mesh address, and that copy is a
+# symptom of the squatter, not the squatter.
 port_holder() {
   ss -ltnpH "sport = :$SITE_PORT" 2>/dev/null \
+    | awk '$4 ~ /^(127\.0\.0\.1|0\.0\.0\.0|\*|\[::\]):/' \
     | grep -oE 'users:\(\("[^"]+",pid=[0-9]+' | head -1 \
     | sed -E 's/users:\(\("([^"]+)",pid=([0-9]+)/\1 (pid \2)/'
 }
